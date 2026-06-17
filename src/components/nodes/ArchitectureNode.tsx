@@ -265,7 +265,8 @@ export const ArchitectureNode = ({ id, data, selected }: NodeProps<ArchitectureN
           hover:bg-gray-100 hover:dark:bg-slate-950 focus:z-10 focus:ring-2
           focus:ring-blue-700 focus:text-blue-700
             border-t border-b border-slate-900 disabled:opacity-60
-          dark:text-gray-200 text-gray-700 bg-white dark:bg-slate-900"
+          dark:text-gray-200 text-gray-700 
+          bg-white dark:bg-slate-900"
               onClick={handleSourceToggle}
               aria-label={sourceProgress >= 0.5 ? "Mover saída para direita" : "Mover saída para baixo"}>
               <svg
@@ -290,7 +291,7 @@ export const ArchitectureNode = ({ id, data, selected }: NodeProps<ArchitectureN
         className={`flex-col items-center gap-1 grid grid-flow-col
         rounded-2xl p-2 shadow-sm w-80
       bg-white dark:bg-slate-900
-        border-2 border-slate-500 dark:border-slate-800
+        border-2 border-slate-400 dark:border-slate-800
         ring-3 ring-slate-300 dark:ring-slate-950
       ${component.hoverCss}`}>
         <Handle

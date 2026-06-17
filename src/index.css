@@ -37,18 +37,26 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-.dark .react-flow__background {
-  background: var(--color-slate-800);
-  stroke-width: 1.6;
- }
-.react-flow__background-pattern {
-  stroke: var(--color-slate-50) !important;
+.light .react-flow__background-pattern {
+  stroke: var(--color-slate-900) !important;
   opacity: .6;
 }
 .light .react-flow__background {
   background: var(--color-slate-50);
 }
-
-.react-flow__node.react-flow__node-group {
+.light .react-flow__node.react-flow__node-group {
   border-radius: 1rem;
+  border-color: var(--color-slate-400);
+}
+.dark .react-flow__background {
+  background: var(--color-slate-800);
+  stroke-width: 1.6;
+ }
+ .dark .react-flow__background-pattern {
+  stroke: var(--color-slate-300) !important;
+  opacity: .6;
+}
+.dark .react-flow__node.react-flow__node-group {
+  border-radius: 1rem;
+  border-color: var(--color-slate-700);
 }

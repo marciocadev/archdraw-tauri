@@ -14,7 +14,7 @@ export const Header = (props: HeaderProps) => {
     <>
       <div className={`w-full h-8 flex items-center justify-between px-2
         dark:bg-mist-900 dark:text-slate-200
-        bg-slate-100 text-slate-700`}>
+        bg-mist-200 text-slate-700`}>
         <div className="flex items-center justify-start">
           {/* <div>
             Header
