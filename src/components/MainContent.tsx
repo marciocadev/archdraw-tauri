@@ -1,19 +1,30 @@
 import {
+  addEdge,
   applyNodeChanges,
   Background,
   Controls,
   ReactFlow,
   ReactFlowProvider,
+  useEdgesState,
   useNodesState,
   useReactFlow,
   type ColorMode,
+  type Connection,
+  type IsValidConnection,
   type NodeChange,
   type OnNodeDrag,
 } from "@xyflow/react"
-import { useCallback, useMemo, type DragEvent } from "react";
+import { useCallback, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
+import { ConnectionConfigPanel } from "./ConnectionConfigPanel";
+import { ArchitectureEdge, type ArchitectureEdgeData, type ArchitectureEdgeType } from "./edges/ArchitectureEdge";
 import { ArchitectureNode, type ArchitectureNodeType } from "./nodes/ArchitectureNode";
 import { GroupNode } from "./nodes/GroupNode";
 import { awsComponentsByKey, DND_MIME_TYPE } from "./utils/awsComponents";
+import { isValidArchitectureConnection } from "./utils/connectionRules";
+import {
+  DEFAULT_CONNECTION_PATH_TYPE,
+  type ConnectionDraft,
+} from "./utils/connectionTypes";
 import {
   ARCHITECTURE_Z_INDEX,
   attachNodeToGroup,
@@ -30,8 +41,25 @@ const nodeTypes = {
   group: GroupNode,
 }
 
+const edgeTypes = {
+  architecture: ArchitectureEdge,
+}
+
+const defaultEdgeOptions = {
+  type: "architecture" as const,
+  animated: true,
+  style: { strokeWidth: 2 },
+}
+
 function generateNodeId(): string {
   return `node_${crypto.randomUUID()}`;
+}
+
+function getConnectionDraft(edge: ArchitectureEdgeType | undefined): ConnectionDraft {
+  return {
+    label: edge?.data?.label ?? "",
+    pathType: edge?.data?.pathType ?? DEFAULT_CONNECTION_PATH_TYPE,
+  }
 }
 
 export interface MainContentProps {
@@ -40,9 +68,136 @@ export interface MainContentProps {
 
 const MainContentFlow = (props: MainContentProps) => {
   const [nodes, setNodes] = useNodesState<FlowNode>([]);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<ArchitectureEdgeType>([]);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const edgeSnapshotRef = useRef<{ id: string; data: ArchitectureEdgeData } | null>(null);
   const { screenToFlowPosition, getInternalNode, getIntersectingNodes } = useReactFlow<FlowNode>();
 
   const { colorMode } = props
+
+  const selectedEdge = useMemo(
+    () => edges.find((edge) => edge.id === selectedEdgeId),
+    [edges, selectedEdgeId],
+  )
+
+  const connectionDraft = useMemo(
+    () => getConnectionDraft(selectedEdge),
+    [selectedEdge],
+  )
+
+  const isValidConnection = useCallback<IsValidConnection<ArchitectureEdgeType>>(
+    (connection) => {
+      if (!connection.source || !connection.target) {
+        return false
+      }
+
+      return isValidArchitectureConnection(
+        {
+          source: connection.source,
+          target: connection.target,
+          sourceHandle: connection.sourceHandle ?? null,
+          targetHandle: connection.targetHandle ?? null,
+        },
+        nodes,
+        edges,
+      )
+    },
+    [edges, nodes],
+  )
+
+  const onConnect = useCallback(
+    (connection: Connection) => {
+      if (!isValidArchitectureConnection(connection, nodes, edges)) {
+        return
+      }
+
+      setEdges((currentEdges) => addEdge({
+        ...connection,
+        type: "architecture",
+        animated: true,
+        style: { strokeWidth: 2 },
+        data: {
+          label: "",
+          labelPosition: 0.5,
+          pathType: DEFAULT_CONNECTION_PATH_TYPE,
+        },
+      }, currentEdges))
+    },
+    [edges, nodes, setEdges],
+  )
+
+  const clearEdgeSelection = useCallback(() => {
+    setSelectedEdgeId(null)
+    edgeSnapshotRef.current = null
+    setEdges((currentEdges) =>
+      currentEdges.map((edge) => ({
+        ...edge,
+        selected: false,
+      })),
+    )
+  }, [setEdges])
+
+  const onEdgeClick = useCallback((_event: MouseEvent, edge: ArchitectureEdgeType) => {
+    edgeSnapshotRef.current = {
+      id: edge.id,
+      data: {
+        label: edge.data?.label ?? "",
+        labelPosition: edge.data?.labelPosition ?? 0.5,
+        pathType: edge.data?.pathType ?? DEFAULT_CONNECTION_PATH_TYPE,
+      },
+    }
+    setSelectedEdgeId(edge.id)
+    setEdges((currentEdges) =>
+      currentEdges.map((currentEdge) => ({
+        ...currentEdge,
+        selected: currentEdge.id === edge.id,
+      })),
+    )
+  }, [setEdges])
+
+  const handleCancelConnectionPanel = useCallback(() => {
+    const snapshot = edgeSnapshotRef.current
+    if (snapshot) {
+      setEdges((currentEdges) =>
+        currentEdges.map((edge) =>
+          edge.id === snapshot.id
+            ? {
+                ...edge,
+                data: {
+                  ...edge.data,
+                  ...snapshot.data,
+                },
+              }
+            : edge,
+        ),
+      )
+    }
+
+    clearEdgeSelection()
+  }, [clearEdgeSelection, setEdges])
+
+  const handleConfirmConnectionPanel = useCallback((draft: ConnectionDraft) => {
+    if (!selectedEdgeId) {
+      return
+    }
+
+    setEdges((currentEdges) =>
+      currentEdges.map((edge) =>
+        edge.id === selectedEdgeId
+          ? {
+              ...edge,
+              data: {
+                ...edge.data,
+                label: draft.label,
+                pathType: draft.pathType,
+              },
+            }
+          : edge,
+      ),
+    )
+
+    clearEdgeSelection()
+  }, [clearEdgeSelection, selectedEdgeId, setEdges])
 
   const handleNodesChange = useCallback((changes: NodeChange<FlowNode>[]) => {
     setNodes((currentNodes) => {
@@ -52,7 +207,7 @@ const MainContentFlow = (props: MainContentProps) => {
         (change) => change.type === "position" && change.dragging && change.position,
       )
 
-      if (!dragChange || dragChange.type !== "position") {
+      if (!dragChange || dragChange.type !== "position" || !dragChange.position) {
         return nextNodes
       }
 
@@ -79,6 +234,12 @@ const MainContentFlow = (props: MainContentProps) => {
       resolveGroupMembership(currentNodes, node.id, getInternalNode, getIntersectingNodes),
     )
   }, [getInternalNode, getIntersectingNodes, setNodes])
+
+  const onPaneClick = useCallback(() => {
+    if (selectedEdgeId) {
+      handleCancelConnectionPanel()
+    }
+  }, [handleCancelConnectionPanel, selectedEdgeId])
 
   const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -138,11 +299,25 @@ const MainContentFlow = (props: MainContentProps) => {
   const flowProps = useMemo(() => ({ hideAttribution: true as const }), [])
 
   return (
-    <div className="h-full w-full dark:bg-slate-700 bg-slate-50">
+    <div className="relative h-full w-full dark:bg-slate-700 bg-slate-50">
+      <ConnectionConfigPanel
+        isOpen={selectedEdgeId !== null}
+        initialDraft={connectionDraft}
+        onConfirm={handleConfirmConnectionPanel}
+        onCancel={handleCancelConnectionPanel}
+      />
       <ReactFlow
         nodes={nodes}
+        edges={edges}
         nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        defaultEdgeOptions={defaultEdgeOptions}
         onNodesChange={handleNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onEdgeClick={onEdgeClick}
+        onPaneClick={onPaneClick}
+        isValidConnection={isValidConnection}
         onNodeDragStop={onNodeDragStop}
         onDragOver={onDragOver}
         onDrop={onDrop}

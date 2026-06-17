@@ -42,7 +42,7 @@ export type ArchitectureNodeType = Node<ArchitectureNodeData, "architecture">;
 const NODE_BORDER_RADIUS = 16
 
 export const ArchitectureNode = ({ id, data, selected }: NodeProps<ArchitectureNodeType>) => {
-  const { getNode, getInternalNode, setNodes } = useReactFlow<FlowNode>()
+  const { getNode, getInternalNode, setNodes, setEdges } = useReactFlow<FlowNode>()
   const updateNodeInternals = useUpdateNodeInternals()
   const component = awsComponentsByKey[data.componentKey]
   const isGrouped = Boolean(getNode(id)?.parentId)
@@ -202,6 +202,9 @@ export const ArchitectureNode = ({ id, data, selected }: NodeProps<ArchitectureN
   const handleDelete = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
     setNodes((nodes) => deleteArchitectureNode(nodes, id, getInternalNode))
+    setEdges((currentEdges) =>
+      currentEdges.filter((edge) => edge.source !== id && edge.target !== id),
+    )
   }
 
   return (
