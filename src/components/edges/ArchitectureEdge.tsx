@@ -12,6 +12,7 @@ import { useCallback, useMemo, useRef, type PointerEvent as ReactPointerEvent } 
 import { getComponentBorderColor } from "../utils/awsComponents"
 import { useDocumentColorMode } from "../utils/colorMode"
 import type { FlowNode } from "../utils/groupNode"
+import { isAwsComponentNode } from "../nodes/aws/awsComponentNodeTypes"
 import {
   DEFAULT_CONNECTION_PATH_TYPE,
   type ConnectionPathType,
@@ -56,7 +57,7 @@ function getGradientId(edgeId: string): string {
 }
 
 function getComponentKey(node: FlowNode | undefined): string | undefined {
-  if (!node || node.type !== "architecture") {
+  if (!isAwsComponentNode(node)) {
     return undefined
   }
 

@@ -1,22 +1,30 @@
 import type { Connection, Edge } from "@xyflow/react"
-import type { ArchitectureNodeType } from "../nodes/ArchitectureNode"
+import { isAwsComponentNode } from "../nodes/aws/awsComponentNodeTypes"
 import { awsComponentsByKey } from "./awsComponents"
 import type { FlowNode } from "./groupNode"
 
-function getArchitectureNode(
-  nodes: FlowNode[],
-  nodeId: string | null | undefined,
-): ArchitectureNodeType | undefined {
-  if (!nodeId) {
-    return undefined
-  }
+const SQS_QUEUE_KEY = "sqs-queue"
+const SQS_DLQ_KEY = "sqs-dlq"
+const DLQ_SOURCE_HANDLE = "dlq"
 
-  const node = nodes.find((current) => current.id === nodeId)
-  if (!node || node.type !== "architecture") {
-    return undefined
-  }
+function isSameConnection(
+  edge: Edge,
+  connection: Connection,
+): boolean {
+  return edge.source === connection.source
+    && edge.target === connection.target
+    && (edge.sourceHandle ?? null) === (connection.sourceHandle ?? null)
+    && (edge.targetHandle ?? null) === (connection.targetHandle ?? null)
+}
 
-  return node as ArchitectureNodeType;
+function isDlqToDeadLetterQueueConnection(
+  sourceKey: string,
+  targetKey: string,
+  sourceHandle: string | null,
+): boolean {
+  return sourceKey === SQS_QUEUE_KEY
+    && targetKey === SQS_DLQ_KEY
+    && sourceHandle === DLQ_SOURCE_HANDLE
 }
 
 export function isValidArchitectureConnection(
@@ -24,16 +32,16 @@ export function isValidArchitectureConnection(
   nodes: FlowNode[],
   edges: Edge[] = [],
 ): boolean {
-  const { source, target } = connection
+  const { source, target, sourceHandle = null } = connection
 
   if (!source || !target || source === target) {
     return false
   }
 
-  const sourceNode = getArchitectureNode(nodes, source)
-  const targetNode = getArchitectureNode(nodes, target)
+  const sourceNode = nodes.find((node) => node.id === source)
+  const targetNode = nodes.find((node) => node.id === target)
 
-  if (!sourceNode || !targetNode) {
+  if (!isAwsComponentNode(sourceNode) || !isAwsComponentNode(targetNode)) {
     return false
   }
 
@@ -46,6 +54,17 @@ export function isValidArchitectureConnection(
     return false
   }
 
+  const isDlqConnection = isDlqToDeadLetterQueueConnection(sourceKey, targetKey, sourceHandle)
+
+  if (sourceHandle === DLQ_SOURCE_HANDLE) {
+    return isDlqConnection
+      && !edges.some((edge) => isSameConnection(edge, connection))
+  }
+
+  if (targetKey === SQS_DLQ_KEY) {
+    return false
+  }
+
   const isAllowedByRules = sourceComponent.connections.canConnectTo.includes(targetKey)
     && targetComponent.connections.canReceiveFrom.includes(sourceKey)
 
@@ -53,7 +72,5 @@ export function isValidArchitectureConnection(
     return false
   }
 
-  const isDuplicate = edges.some((edge) => edge.source === source && edge.target === target)
-
-  return !isDuplicate
+  return !edges.some((edge) => isSameConnection(edge, connection))
 }
