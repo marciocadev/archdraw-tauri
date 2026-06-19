@@ -14,6 +14,8 @@ export const MIN_GROUP_WIDTH = 200
 export const MIN_GROUP_HEIGHT = 150
 export const GROUP_Z_INDEX = 0
 export const ARCHITECTURE_Z_INDEX = 1
+/** Above React Flow selected-node elevation (SELECTED_NODE_Z = 1000). */
+export const DLQ_EDGE_Z_INDEX = 2000
 
 const DEFAULT_NODE_WIDTH = 320
 const DEFAULT_NODE_HEIGHT = 96

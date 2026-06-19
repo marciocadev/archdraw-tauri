@@ -30,6 +30,7 @@ import {
 import {
   ARCHITECTURE_Z_INDEX,
   attachNodeToGroup,
+  DLQ_EDGE_Z_INDEX,
   findTargetGroupForPoint,
   fitGroupsToChildren,
   getNodeAbsolutePosition,
@@ -123,7 +124,7 @@ const MainContentFlow = (props: MainContentProps) => {
         ...connection,
         type: "architecture",
         animated: true,
-        zIndex: connection.sourceHandle === "dlq" ? 1000 : undefined,
+        zIndex: connection.sourceHandle === "dlq" ? DLQ_EDGE_Z_INDEX : undefined,
         style: { strokeWidth: 2 },
         data: {
           label: "",
