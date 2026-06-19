@@ -317,7 +317,7 @@ export const SQSQueueNode = ({ id, data, selected }: NodeProps<SQSQueueNodeType>
         border-2 border-slate-400 dark:border-slate-800
         ring-3 ring-slate-300 dark:ring-slate-950
       ${component.hoverCss}`}>
-        <div className="rows-span-1 grid grid-flow-col">
+        <div className="rows-span-1 grid grid-flow-col bg-inherit">
           <Handle
             type="target"
             position={HANDLE_POSITION[targetSide]}

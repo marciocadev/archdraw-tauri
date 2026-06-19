@@ -208,6 +208,15 @@ const MainContentFlow = (props: MainContentProps) => {
     clearEdgeSelection()
   }, [clearEdgeSelection, selectedEdgeId, setEdges])
 
+  const handleDisconnectConnection = useCallback(() => {
+    if (!selectedEdgeId) {
+      return
+    }
+
+    setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== selectedEdgeId))
+    clearEdgeSelection()
+  }, [clearEdgeSelection, selectedEdgeId, setEdges])
+
   const handleNodesChange = useCallback((changes: NodeChange<FlowNode>[]) => {
     setNodes((currentNodes) => {
       let nextNodes = normalizeNodes(applyNodeChanges(changes, currentNodes) as FlowNode[])
@@ -319,6 +328,7 @@ const MainContentFlow = (props: MainContentProps) => {
         initialDraft={connectionDraft}
         onConfirm={handleConfirmConnectionPanel}
         onCancel={handleCancelConnectionPanel}
+        onDisconnect={handleDisconnectConnection}
       />
       <ReactFlow
         nodes={nodes}
