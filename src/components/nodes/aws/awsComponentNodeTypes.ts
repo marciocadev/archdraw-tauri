@@ -1,4 +1,5 @@
 import type { Node } from "@xyflow/react"
+import type { SnsTopicType } from "../../utils/snsTopicTypes"
 
 export const AWS_COMPONENT_NODE_TYPES = ["lambda-function", "sns-topic", "sqs-queue", "sqs-dlq"] as const
 
@@ -9,6 +10,11 @@ export interface AwsComponentNodeData extends Record<string, unknown> {
   targetHandleAtTop?: boolean;
   sourceHandleAtBottom?: boolean;
   dlqHandleAtRight?: boolean;
+  topicName?: string;
+  topicType?: SnsTopicType;
+  functionName?: string;
+  queueName?: string;
+  dlqName?: string;
 }
 
 export type LambdaFunctionNodeType = Node<AwsComponentNodeData, "lambda-function">

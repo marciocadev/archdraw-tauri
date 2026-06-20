@@ -14,5 +14,6 @@ export const LambdaFunctionNode = ({ id, data, selected }: NodeProps<LambdaFunct
     selected={selected}
     nodeType={NODE_TYPE}
     componentKey={COMPONENT_KEY}
+    componentLabel={data.functionName || undefined}
   />
 )

@@ -14,5 +14,6 @@ export const SNSTopicNode = ({ id, data, selected }: NodeProps<SNSTopicNodeType>
     selected={selected}
     nodeType={NODE_TYPE}
     componentKey={COMPONENT_KEY}
+    componentLabel={data.topicName || undefined}
   />
 )
