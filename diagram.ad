@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "format": "archdraw-diagram",
+  "nodes": [
+    {
+      "id": "node_2ca8442e-7211-4abd-862d-fc0018be3156",
+      "type": "sns-topic",
+      "position": {
+        "x": 155,
+        "y": 311
+      },
+      "zIndex": 1,
+      "data": {
+        "componentKey": "sns-topic"
+      },
+      "measured": {
+        "width": 320,
+        "height": 84
+      },
+      "selected": false,
+      "dragging": false
+    },
+    {
+      "id": "node_da8ae9c4-980e-4372-b58d-d447b1bebe10",
+      "type": "sqs-queue",
+      "position": {
+        "x": 633,
+        "y": 123
+      },
+      "zIndex": 1,
+      "data": {
+        "componentKey": "sqs-queue"
+      },
+      "measured": {
+        "width": 320,
+        "height": 142
+      },
+      "selected": true,
+      "dragging": false
+    }
+  ],
+  "edges": [
+    {
+      "type": "architecture",
+      "animated": true,
+      "style": {
+        "strokeWidth": 2
+      },
+      "source": "node_2ca8442e-7211-4abd-862d-fc0018be3156",
+      "target": "node_da8ae9c4-980e-4372-b58d-d447b1bebe10",
+      "data": {
+        "label": "",
+        "labelPosition": 0.5,
+        "pathType": "bezier"
+      },
+      "id": "xy-edge__node_2ca8442e-7211-4abd-862d-fc0018be3156-node_da8ae9c4-980e-4372-b58d-d447b1bebe10"
+    }
+  ]
+}

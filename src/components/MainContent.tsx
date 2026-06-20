@@ -1,4 +1,14 @@
 import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
+import {
   addEdge,
   applyNodeChanges,
   Background,
@@ -14,7 +24,6 @@ import {
   type NodeChange,
   type OnNodeDrag,
 } from "@xyflow/react"
-import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { ConnectionConfigPanel } from "./ConnectionConfigPanel";
 import { ArchitectureEdge, type ArchitectureEdgeData, type ArchitectureEdgeType } from "./edges/ArchitectureEdge";
 import { LambdaFunctionNode } from "./nodes/aws/LambdaFunctionNode";
@@ -42,6 +51,8 @@ import {
 import { isAwsComponentNode } from "./nodes/aws/awsComponentNodeTypes";
 import { SQSQueueNode } from "./nodes/aws/SQSQueueNode";
 import { SQSDeadLetterQueueNode } from "./nodes/aws/SQSDeadLetterQueueNode";
+import { saveDiagramFromCanvas } from "../services/saveDiagramFile";
+import { openDiagramFromFile } from "../services/openDiagramFile";
 
 const nodeTypes = {
   "lambda-function": LambdaFunctionNode,
@@ -76,7 +87,12 @@ export interface MainContentProps {
   colorMode: ColorMode
 }
 
-const MainContentFlow = (props: MainContentProps) => {
+export interface DiagramCanvasHandle {
+  saveDiagram: () => Promise<boolean>
+  openDiagram: () => Promise<boolean>
+}
+
+const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props, ref) => {
   const [nodes, setNodes] = useNodesState<FlowNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<ArchitectureEdgeType>([]);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
@@ -84,6 +100,35 @@ const MainContentFlow = (props: MainContentProps) => {
   const { screenToFlowPosition, getInternalNode, getIntersectingNodes } = useReactFlow<FlowNode>();
 
   const { colorMode } = props
+
+  const nodesRef = useRef(nodes)
+  const edgesRef = useRef(edges)
+
+  useEffect(() => {
+    nodesRef.current = nodes
+  }, [nodes])
+
+  useEffect(() => {
+    edgesRef.current = edges
+  }, [edges])
+
+  useImperativeHandle(ref, () => ({
+    saveDiagram: async () => {
+      return saveDiagramFromCanvas(nodesRef.current, edgesRef.current)
+    },
+    openDiagram: async () => {
+      const document = await openDiagramFromFile()
+      if (!document) {
+        return false
+      }
+
+      setSelectedEdgeId(null)
+      edgeSnapshotRef.current = null
+      setNodes(normalizeNodes(document.nodes))
+      setEdges(document.edges.map((edge) => ({ ...edge, selected: false })))
+      return true
+    },
+  }), [setEdges, setNodes])
 
   const selectedEdge = useMemo(
     () => edges.find((edge) => edge.id === selectedEdgeId),
@@ -350,10 +395,14 @@ const MainContentFlow = (props: MainContentProps) => {
       </ReactFlow>
     </div>
   )
-}
+})
 
-export const MainContent = (props: MainContentProps) => (
+MainContentFlow.displayName = "MainContentFlow"
+
+export const MainContent = forwardRef<DiagramCanvasHandle, MainContentProps>((props, ref) => (
   <ReactFlowProvider>
-    <MainContentFlow {...props} />
+    <MainContentFlow ref={ref} {...props} />
   </ReactFlowProvider>
-)
+))
+
+MainContent.displayName = "MainContent"

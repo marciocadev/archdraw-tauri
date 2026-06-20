@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { LeftSideBar } from "./components/LeftSideBar"
-import { MainContent } from "./components/MainContent"
+import { MainContent, type DiagramCanvasHandle } from "./components/MainContent"
 import { Header } from "./components/Header"
 import { WindowsTitleBar } from "./components/WindowsTitleBar"
 import { useIsWindowsDesktop } from "./hooks/useIsWindowsDesktop"
@@ -11,6 +11,7 @@ function App() {
   const [colorMode, setColorMode] = useState<ColorMode>("dark")
   const [diagramSession, setDiagramSession] = useState(0)
   const isWindowsDesktop = useIsWindowsDesktop()
+  const diagramRef = useRef<DiagramCanvasHandle>(null)
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", colorMode === "dark")
@@ -24,8 +25,12 @@ function App() {
     setShowLeftSideBar(!showLeftSideBar)
   }
 
-  const onNewDiagram = () => {
-    setDiagramSession((session) => session + 1)
+  const onSaveDiagram = () => {
+    void diagramRef.current?.saveDiagram()
+  }
+
+  const onOpenDiagram = () => {
+    void diagramRef.current?.openDiagram()
   }
 
   return (
@@ -35,7 +40,8 @@ function App() {
           colorMode={colorMode}
           horizontalLeftBar={showLeftSideBar}
           onHorizontalLeftBarToggle={onHorizontalLeftBarToggle}
-          onNew={onNewDiagram}
+          onOpen={onOpenDiagram}
+          onSave={onSaveDiagram}
           onThemeToggle={onThemeToggle}
         />
       ) : (
@@ -44,11 +50,13 @@ function App() {
           colorMode={colorMode}
           onHorizontalLeftBarToggle={onHorizontalLeftBarToggle}
           horizontalLeftBar={showLeftSideBar}
+          onOpen={onOpenDiagram}
+          onSave={onSaveDiagram}
         />
       )}
       <main className="flex min-h-0 flex-1 flex-row">
         <LeftSideBar showLeftSideBar={showLeftSideBar} />
-        <MainContent key={diagramSession} colorMode={colorMode} />
+        <MainContent ref={diagramRef} key={diagramSession} colorMode={colorMode} />
       </main>
     </div>
   )

@@ -11,7 +11,8 @@ export interface WindowsTitleBarProps {
   colorMode: string
   horizontalLeftBar: boolean
   onHorizontalLeftBarToggle: () => void
-  onNew: () => void
+  onOpen: () => void
+  onSave: () => void
   onThemeToggle: () => void
 }
 
@@ -20,7 +21,8 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
     colorMode,
     horizontalLeftBar,
     onHorizontalLeftBarToggle,
-    onNew,
+    onOpen,
+    onSave,
     onThemeToggle,
   } = props
 
@@ -44,9 +46,15 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
     return () => document.removeEventListener("pointerdown", handlePointerDown)
   }, [isFileMenuOpen])
 
-  const handleNew = () => {
+
+  const handleOpen = () => {
     setIsFileMenuOpen(false)
-    onNew()
+    onOpen()
+  }
+
+  const handleSave = () => {
+    setIsFileMenuOpen(false)
+    onSave()
   }
 
   const handleExit = async () => {
@@ -75,7 +83,7 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
     >
       <div className="flex h-full shrink-0 items-center gap-2 pl-2">
         <img
-          src="/app-icon.png"
+          src="/icon-32x32.png"
           alt="ArchDraw"
           className="h-4 w-4 shrink-0"
           draggable={false}
@@ -98,9 +106,16 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
               <button
                 type="button"
                 className="block w-full px-4 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                onClick={handleNew}
+                onClick={handleSave}
               >
-                New
+                Save
+              </button>
+              <button
+                type="button"
+                className="block w-full px-4 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
+                onClick={handleOpen}
+              >
+                Open
               </button>
               <button
                 type="button"
