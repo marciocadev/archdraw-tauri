@@ -60,3 +60,6 @@
   border-radius: 1rem;
   border-color: var(--color-slate-700);
 }
+.react-flow__node.react-flow__node-sqs-queue {
+  overflow: visible;
+}

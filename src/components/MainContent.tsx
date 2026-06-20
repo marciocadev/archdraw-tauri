@@ -17,9 +17,11 @@ import {
 import { useCallback, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
 import { ConnectionConfigPanel } from "./ConnectionConfigPanel";
 import { ArchitectureEdge, type ArchitectureEdgeData, type ArchitectureEdgeType } from "./edges/ArchitectureEdge";
-import { ArchitectureNode, type ArchitectureNodeType } from "./nodes/ArchitectureNode";
+import { LambdaFunctionNode } from "./nodes/aws/LambdaFunctionNode";
+import { SNSTopicNode } from "./nodes/aws/SNSTopicNode";
+import type { AwsComponentNodeType } from "./nodes/aws/awsComponentNodeTypes";
 import { GroupNode } from "./nodes/GroupNode";
-import { awsComponentsByKey, DND_MIME_TYPE } from "./utils/awsComponents";
+import { awsComponentsByKey, DND_MIME_TYPE, getNodeTypeForComponentKey } from "./utils/awsComponents";
 import { isValidArchitectureConnection } from "./utils/connectionRules";
 import {
   DEFAULT_CONNECTION_PATH_TYPE,
@@ -28,6 +30,7 @@ import {
 import {
   ARCHITECTURE_Z_INDEX,
   attachNodeToGroup,
+  DLQ_EDGE_Z_INDEX,
   findTargetGroupForPoint,
   fitGroupsToChildren,
   getNodeAbsolutePosition,
@@ -35,9 +38,15 @@ import {
   resolveGroupMembership,
   type FlowNode,
 } from "./utils/groupNode";
+import { isAwsComponentNode } from "./nodes/aws/awsComponentNodeTypes";
+import { SQSQueueNode } from "./nodes/aws/SQSQueueNode";
+import { SQSDeadLetterQueueNode } from "./nodes/aws/SQSDeadLetterQueueNode";
 
 const nodeTypes = {
-  architecture: ArchitectureNode,
+  "lambda-function": LambdaFunctionNode,
+  "sns-topic": SNSTopicNode,
+  "sqs-queue": SQSQueueNode,
+  "sqs-dlq": SQSDeadLetterQueueNode,
   group: GroupNode,
 }
 
@@ -115,6 +124,7 @@ const MainContentFlow = (props: MainContentProps) => {
         ...connection,
         type: "architecture",
         animated: true,
+        zIndex: connection.sourceHandle === "dlq" ? DLQ_EDGE_Z_INDEX : undefined,
         style: { strokeWidth: 2 },
         data: {
           label: "",
@@ -162,12 +172,12 @@ const MainContentFlow = (props: MainContentProps) => {
         currentEdges.map((edge) =>
           edge.id === snapshot.id
             ? {
-                ...edge,
-                data: {
-                  ...edge.data,
-                  ...snapshot.data,
-                },
-              }
+              ...edge,
+              data: {
+                ...edge.data,
+                ...snapshot.data,
+              },
+            }
             : edge,
         ),
       )
@@ -185,13 +195,13 @@ const MainContentFlow = (props: MainContentProps) => {
       currentEdges.map((edge) =>
         edge.id === selectedEdgeId
           ? {
-              ...edge,
-              data: {
-                ...edge.data,
-                label: draft.label,
-                pathType: draft.pathType,
-              },
-            }
+            ...edge,
+            data: {
+              ...edge.data,
+              label: draft.label,
+              pathType: draft.pathType,
+            },
+          }
           : edge,
       ),
     )
@@ -199,9 +209,18 @@ const MainContentFlow = (props: MainContentProps) => {
     clearEdgeSelection()
   }, [clearEdgeSelection, selectedEdgeId, setEdges])
 
+  const handleDisconnectConnection = useCallback(() => {
+    if (!selectedEdgeId) {
+      return
+    }
+
+    setEdges((currentEdges) => currentEdges.filter((edge) => edge.id !== selectedEdgeId))
+    clearEdgeSelection()
+  }, [clearEdgeSelection, selectedEdgeId, setEdges])
+
   const handleNodesChange = useCallback((changes: NodeChange<FlowNode>[]) => {
     setNodes((currentNodes) => {
-      let nextNodes = applyNodeChanges(changes, currentNodes) as FlowNode[]
+      let nextNodes = normalizeNodes(applyNodeChanges(changes, currentNodes) as FlowNode[])
 
       const dragChange = changes.find(
         (change) => change.type === "position" && change.dragging && change.position,
@@ -212,7 +231,7 @@ const MainContentFlow = (props: MainContentProps) => {
       }
 
       const draggedNode = nextNodes.find((node) => node.id === dragChange.id)
-      if (draggedNode?.type !== "architecture" || !draggedNode.parentId) {
+      if (!isAwsComponentNode(draggedNode) || !draggedNode.parentId) {
         return nextNodes
       }
 
@@ -226,7 +245,7 @@ const MainContentFlow = (props: MainContentProps) => {
   }, [getInternalNode, setNodes])
 
   const onNodeDragStop = useCallback<OnNodeDrag<FlowNode>>((_event, node) => {
-    if (node.type !== "architecture") {
+    if (!isAwsComponentNode(node)) {
       return
     }
 
@@ -261,9 +280,14 @@ const MainContentFlow = (props: MainContentProps) => {
       y: event.clientY,
     })
 
-    const newNode: ArchitectureNodeType = {
+    const nodeType = getNodeTypeForComponentKey(componentKey)
+    if (!nodeType) {
+      return
+    }
+
+    const newNode: AwsComponentNodeType = {
       id: generateNodeId(),
-      type: "architecture",
+      type: nodeType,
       position,
       zIndex: ARCHITECTURE_Z_INDEX,
       data: { componentKey },
@@ -305,6 +329,7 @@ const MainContentFlow = (props: MainContentProps) => {
         initialDraft={connectionDraft}
         onConfirm={handleConfirmConnectionPanel}
         onCancel={handleCancelConnectionPanel}
+        onDisconnect={handleDisconnectConnection}
       />
       <ReactFlow
         nodes={nodes}

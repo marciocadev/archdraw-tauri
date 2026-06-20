@@ -4,11 +4,12 @@ export { ANIMATION_DURATION_MS }
 
 export function runHandleProgressAnimation(options: {
   startProgress: number;
+  endProgress?: number;
   animationFrameRef: { current: number | undefined };
   onProgress: (progress: number) => void;
   onComplete: (endProgress: number) => void;
 }): void {
-  const endProgress = options.startProgress < 0.5 ? 1 : 0
+  const endProgress = options.endProgress ?? (options.startProgress < 0.5 ? 1 : 0)
   const startTime = performance.now()
 
   const animate = (timestamp: number) => {
@@ -181,5 +182,53 @@ export function getHandleStyle(
     right: "auto",
     bottom: "auto",
     transform: "translate(-50%, -50%)",
+  }
+}
+
+export function getDlqHandlePoint(
+  progress: number,
+  width: number,
+  height: number,
+): { x: number; y: number } {
+  const radius = height / 2
+
+  if (progress <= 0) {
+    return { x: 0, y: height / 2 }
+  }
+
+  if (progress >= 1) {
+    return { x: width, y: height / 2 }
+  }
+
+  const leftArcLength = (Math.PI / 2) * radius
+  const topStraightLength = Math.max(0, width - height)
+  const rightArcLength = (Math.PI / 2) * radius
+  const totalLength = leftArcLength + topStraightLength + rightArcLength
+  let distance = progress * totalLength
+
+  if (distance <= leftArcLength) {
+    const segmentProgress = distance / leftArcLength
+    const angle = Math.PI + segmentProgress * (Math.PI / 2)
+    return {
+      x: radius + radius * Math.cos(angle),
+      y: radius + radius * Math.sin(angle),
+    }
+  }
+
+  distance -= leftArcLength
+
+  if (distance <= topStraightLength) {
+    const segmentProgress = topStraightLength === 0 ? 1 : distance / topStraightLength
+    return { x: radius + segmentProgress * (width - height), y: 0 }
+  }
+
+  distance -= topStraightLength
+  const segmentProgress = distance / rightArcLength
+  const angle = -Math.PI / 2 + segmentProgress * (Math.PI / 2)
+  const centerX = width - radius
+
+  return {
+    x: centerX + radius * Math.cos(angle),
+    y: radius + radius * Math.sin(angle),
   }
 }

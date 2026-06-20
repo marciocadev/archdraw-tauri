@@ -3,8 +3,6 @@ import {
   Position,
   useReactFlow,
   useUpdateNodeInternals,
-  type Node,
-  type NodeProps,
 } from "@xyflow/react"
 import {
   useCallback,
@@ -14,15 +12,20 @@ import {
   useState,
   type MouseEvent,
 } from "react"
-import { awsComponentsByKey } from "../utils/awsComponents"
-import { createGroupForNode, deleteArchitectureNode, ungroupNode, type FlowNode } from "../utils/groupNode"
+import { awsComponentsByKey } from "../../utils/awsComponents"
+import { createGroupForNode, deleteAwsComponentNode, ungroupNode, type FlowNode } from "../../utils/groupNode"
 import {
   getHandleSideFromPoint,
   getHandleStyle,
   getSourceHandlePoint,
   getTargetHandlePoint,
   runHandleProgressAnimation,
-} from "../utils/targetHandlePosition"
+} from "../../utils/targetHandlePosition"
+import { MenuNode } from "../MenuNode"
+import {
+  type AwsComponentNodeData,
+  type AwsComponentNodeTypeName,
+} from "./awsComponentNodeTypes"
 
 const HANDLE_POSITION = {
   left: Position.Left,
@@ -31,21 +34,30 @@ const HANDLE_POSITION = {
   bottom: Position.Bottom,
 } as const
 
-export interface ArchitectureNodeData extends Record<string, unknown> {
-  componentKey: string;
-  targetHandleAtTop?: boolean;
-  sourceHandleAtBottom?: boolean;
-}
-
-export type ArchitectureNodeType = Node<ArchitectureNodeData, "architecture">;
-
 const NODE_BORDER_RADIUS = 16
 
-export const ArchitectureNode = ({ id, data, selected }: NodeProps<ArchitectureNodeType>) => {
+export interface AwsComponentNodeBaseProps {
+  id: string;
+  data: AwsComponentNodeData;
+  selected: boolean;
+  nodeType: AwsComponentNodeTypeName;
+  componentKey: string;
+}
+
+export const AwsComponentNodeBase = ({
+  id,
+  data,
+  selected,
+  nodeType,
+  componentKey,
+}: AwsComponentNodeBaseProps) => {
   const { getNode, getInternalNode, setNodes, setEdges } = useReactFlow<FlowNode>()
   const updateNodeInternals = useUpdateNodeInternals()
-  const component = awsComponentsByKey[data.componentKey]
+  const component = awsComponentsByKey[componentKey]
   const isGrouped = Boolean(getNode(id)?.parentId)
+
+  const haveTarget = Boolean(component?.haveTarget)
+  const haveSource = Boolean(component?.haveSource)
 
   const nodeBodyRef = useRef<HTMLDivElement>(null)
   const targetAnimationFrameRef = useRef<number | undefined>(undefined)
@@ -97,12 +109,12 @@ export const ArchitectureNode = ({ id, data, selected }: NodeProps<ArchitectureN
   ) => {
     setNodes((nodes) =>
       nodes.map((node) =>
-        node.id === id && node.type === "architecture"
+        node.id === id && node.type === nodeType
           ? { ...node, data: { ...node.data, [key]: value } }
           : node,
       ),
     )
-  }, [id, setNodes])
+  }, [id, nodeType, setNodes])
 
   const handleTargetToggle = useCallback((event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
@@ -201,7 +213,7 @@ export const ArchitectureNode = ({ id, data, selected }: NodeProps<ArchitectureN
 
   const handleDelete = (event: MouseEvent<HTMLButtonElement>) => {
     event.stopPropagation()
-    setNodes((nodes) => deleteArchitectureNode(nodes, id, getInternalNode))
+    setNodes((nodes) => deleteAwsComponentNode(nodes, id, getInternalNode))
     setEdges((currentEdges) =>
       currentEdges.filter((edge) => edge.source !== id && edge.target !== id),
     )
@@ -210,83 +222,19 @@ export const ArchitectureNode = ({ id, data, selected }: NodeProps<ArchitectureN
   return (
     <div className="relative">
       {selected && (
-        <div className="nodrag nopan absolute right-0 bottom-full z-10 mb-2">
-          <div className="inline-flex rounded-md shadow-sm" role="group">
-            <button
-              type="button"
-              disabled={isTargetAnimating}
-              className="nodrag nopan flex items-center justify-center px-3 py-2 text-sm font-medium rounded-l-full
-          hover:bg-gray-100 hover:dark:bg-slate-950 focus:z-10 focus:ring-2
-          focus:ring-blue-700 focus:text-blue-700
-            border border-slate-900 disabled:opacity-60
-          dark:text-gray-200 text-gray-700 bg-white dark:bg-slate-900"
-              onClick={handleTargetToggle}
-              aria-label={targetProgress >= 0.5 ? "Mover entrada para esquerda" : "Mover entrada para cima"}>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="size-4 transition-none"
-                style={{ transform: `rotate(${-90 * targetProgress}deg)` }}>
-                <path d="M15 6l-6 6 6 6" />
-              </svg>
-            </button>
-            <span className="w-0.5 justify-start items-center flex bg-slate-700" />
-            <button type="button" className="px-4 py-2 text-sm font-medium
-          hover:bg-gray-100 hover:dark:bg-slate-950  focus:z-10 focus:ring-2
-          focus:ring-blue-700 focus:text-blue-700
-            border-t border-b border-slate-900
-          dark:text-gray-200 text-gray-700 bg-white dark:bg-slate-900">
-              Details
-            </button>
-            <span className="w-0.5 justify-start items-center flex bg-slate-700" />
-            <button type="button" className="nodrag nopan px-4 py-2 text-sm font-medium
-          hover:bg-gray-100 hover:dark:bg-slate-950 focus:z-10 focus:ring-2
-          focus:ring-blue-700 focus:text-blue-700
-            border-t border-b border-slate-900
-          dark:text-gray-200 text-gray-700 bg-white dark:bg-slate-900"
-              onClick={handleGroupToggle}>
-              {isGrouped ? "Ungroup" : "Group"}
-            </button>
-            <span className="w-0.5 justify-start items-center flex bg-slate-700" />
-            <button type="button" className="nodrag nopan px-4 py-2 text-sm font-medium 
-          hover:bg-gray-100 hover:dark:bg-slate-950 focus:z-10 focus:ring-2
-          focus:ring-blue-700 focus:text-blue-700
-            border border-slate-900
-          dark:text-gray-200 text-gray-700 bg-white dark:bg-slate-900"
-              onClick={handleDelete}>
-              Delete
-            </button>
-            <span className="w-0.5 justify-start items-center flex bg-slate-700" />
-            <button
-              type="button"
-              disabled={isSourceAnimating}
-              className="nodrag nopan flex items-center justify-center px-3 py-2 text-sm font-medium rounded-r-full
-          hover:bg-gray-100 hover:dark:bg-slate-950 focus:z-10 focus:ring-2
-          focus:ring-blue-700 focus:text-blue-700
-            border-t border-b border-slate-900 disabled:opacity-60
-          dark:text-gray-200 text-gray-700 
-          bg-white dark:bg-slate-900"
-              onClick={handleSourceToggle}
-              aria-label={sourceProgress >= 0.5 ? "Mover saída para direita" : "Mover saída para baixo"}>
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="size-4 transition-none"
-                style={{ transform: `rotate(${90 * sourceProgress}deg)` }}>
-                <path d="M9 6l6 6-6 6" />
-              </svg>
-            </button>
-
-          </div >
-        </div>
+        <MenuNode
+          haveTarget={haveTarget}
+          isTargetAnimating={isTargetAnimating}
+          targetProgress={targetProgress}
+          handleTargetToggle={handleTargetToggle}
+          haveSource={haveSource}
+          handleGroupToggle={handleGroupToggle}
+          handleDelete={handleDelete}
+          handleSourceToggle={handleSourceToggle}
+          isSourceAnimating={isSourceAnimating}
+          sourceProgress={sourceProgress}
+          isGrouped={isGrouped}
+        />
       )}
 
       <div

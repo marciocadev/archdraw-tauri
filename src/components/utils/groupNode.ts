@@ -1,16 +1,21 @@
 import type { CSSProperties } from "react"
 import type { InternalNode } from "@xyflow/react"
-import type { ArchitectureNodeType } from "../nodes/ArchitectureNode"
 import type { GroupNodeType } from "../nodes/GroupNode"
+import {
+  type AwsComponentNodeType,
+  isAwsComponentNode,
+} from "../nodes/aws/awsComponentNodeTypes"
 
 export type { GroupNodeType } from "../nodes/GroupNode"
-export type FlowNode = ArchitectureNodeType | GroupNodeType
+export type FlowNode = AwsComponentNodeType | GroupNodeType
 
 export const GROUP_CHILD_PADDING = 24
 export const MIN_GROUP_WIDTH = 200
 export const MIN_GROUP_HEIGHT = 150
 export const GROUP_Z_INDEX = 0
 export const ARCHITECTURE_Z_INDEX = 1
+/** Above React Flow selected-node elevation (SELECTED_NODE_Z = 1000). */
+export const DLQ_EDGE_Z_INDEX = 2000
 
 const DEFAULT_NODE_WIDTH = 320
 const DEFAULT_NODE_HEIGHT = 96
@@ -100,7 +105,7 @@ function getAbsolutePosition(
 }
 
 function getChildRect(
-  child: ArchitectureNodeType,
+  child: AwsComponentNodeType,
   nodes: FlowNode[],
   getInternalNode: (id: string) => InternalNode | undefined,
   draggedNode?: { id: string; position: { x: number; y: number } },
@@ -183,10 +188,10 @@ export function normalizeNodes(nodes: FlowNode[]): FlowNode[] {
 }
 
 function asGroupChild(
-  node: ArchitectureNodeType,
+  node: AwsComponentNodeType,
   parentId: string,
   position: { x: number; y: number },
-): ArchitectureNodeType {
+): AwsComponentNodeType {
   return {
     ...node,
     parentId,
@@ -196,9 +201,9 @@ function asGroupChild(
 }
 
 function detachFromGroup(
-  node: ArchitectureNodeType,
+  node: AwsComponentNodeType,
   absolutePosition: { x: number; y: number },
-): ArchitectureNodeType {
+): AwsComponentNodeType {
   return {
     ...node,
     parentId: undefined,
@@ -220,8 +225,8 @@ function fitSingleGroup(
   }
 
   const children = nodes.filter(
-    (node) => node.parentId === groupId && node.type === "architecture",
-  ) as ArchitectureNodeType[]
+    (node) => node.parentId === groupId && isAwsComponentNode(node),
+  ) as AwsComponentNodeType[]
 
   if (children.length === 0) {
     return nodes
@@ -260,7 +265,7 @@ function fitSingleGroup(
       }
     }
 
-    if (node.parentId !== groupId || node.type !== "architecture") {
+    if (node.parentId !== groupId || !isAwsComponentNode(node)) {
       return node
     }
 
@@ -316,7 +321,7 @@ export function ungroupNode(
 ): FlowNode[] {
   const node = nodes.find((current) => current.id === nodeId)
 
-  if (!node || node.type !== "architecture" || !node.parentId) {
+  if (!node || !isAwsComponentNode(node) || !node.parentId) {
     return nodes
   }
 
@@ -329,7 +334,7 @@ export function ungroupNode(
 
   let updatedNodes = nodes.map((current) =>
     current.id === nodeId
-      ? detachFromGroup(current as ArchitectureNodeType, absolutePosition)
+      ? detachFromGroup(node, absolutePosition)
       : current,
   )
 
@@ -342,14 +347,14 @@ export function ungroupNode(
   return fitGroupsToChildren(updatedNodes, getInternalNode, [parentId])
 }
 
-export function deleteArchitectureNode(
+export function deleteAwsComponentNode(
   nodes: FlowNode[],
   nodeId: string,
   getInternalNode: (id: string) => InternalNode | undefined,
 ): FlowNode[] {
   const node = nodes.find((current) => current.id === nodeId)
 
-  if (!node || node.type !== "architecture") {
+  if (!node || !isAwsComponentNode(node)) {
     return nodes
   }
 
@@ -395,6 +400,19 @@ export function findTargetGroupForPoint(
     .sort((a, b) => getGroupArea(a) - getGroupArea(b))[0]
 }
 
+function removeGroupIfEmpty(nodes: FlowNode[], groupId: string | undefined): FlowNode[] {
+  if (!groupId) {
+    return nodes
+  }
+
+  const hasChildren = nodes.some((node) => node.parentId === groupId)
+  if (hasChildren) {
+    return nodes
+  }
+
+  return normalizeNodes(nodes.filter((node) => node.id !== groupId))
+}
+
 export function resolveGroupMembership(
   nodes: FlowNode[],
   nodeId: string,
@@ -402,7 +420,7 @@ export function resolveGroupMembership(
   getIntersectingNodes: (node: { id: string }, partially?: boolean) => FlowNode[],
 ): FlowNode[] {
   const node = nodes.find((current) => current.id === nodeId)
-  if (!node || node.type !== "architecture") {
+  if (!node || !isAwsComponentNode(node)) {
     return nodes
   }
 
@@ -425,13 +443,15 @@ export function resolveGroupMembership(
       return nodes
     }
 
+    const previousParentId = node.parentId
+
     const updatedNodes = nodes.map((current) => {
       if (current.id !== nodeId) {
         return current
       }
 
       return asGroupChild(
-        current as ArchitectureNodeType,
+        node,
         targetGroup.id,
         {
           x: absolutePosition.x - groupAbsolute.x,
@@ -440,7 +460,8 @@ export function resolveGroupMembership(
       )
     })
 
-    return fitGroupsToChildren(updatedNodes, getInternalNode, [targetGroup.id])
+    const fittedNodes = fitGroupsToChildren(updatedNodes, getInternalNode, [targetGroup.id])
+    return removeGroupIfEmpty(fittedNodes, previousParentId)
   }
 
   if (!node.parentId) {
@@ -454,24 +475,23 @@ export function resolveGroupMembership(
       return current
     }
 
-    return detachFromGroup(current as ArchitectureNodeType, absolutePosition)
+    return detachFromGroup(node, absolutePosition)
   })
 
-  const hasOtherChildren = updatedNodes.some((current) => current.parentId === parentId)
-
-  if (!hasOtherChildren) {
-    return normalizeNodes(updatedNodes.filter((current) => current.id !== parentId))
+  const withoutEmptyParent = removeGroupIfEmpty(updatedNodes, parentId)
+  if (withoutEmptyParent.length !== updatedNodes.length) {
+    return withoutEmptyParent
   }
 
   return fitGroupsToChildren(updatedNodes, getInternalNode, [parentId])
 }
 
 export function attachNodeToGroup(
-  node: ArchitectureNodeType,
+  node: AwsComponentNodeType,
   group: GroupNodeType,
   absolutePosition: { x: number; y: number },
   groupAbsolutePosition: { x: number; y: number },
-): ArchitectureNodeType {
+): AwsComponentNodeType {
   return asGroupChild(node, group.id, {
     x: absolutePosition.x - groupAbsolutePosition.x,
     y: absolutePosition.y - groupAbsolutePosition.y,
@@ -485,7 +505,7 @@ export function createGroupForNode(
 ): FlowNode[] {
   const child = nodes.find((node) => node.id === nodeId)
 
-  if (!child || child.type !== "architecture" || child.parentId) {
+  if (!child || !isAwsComponentNode(child) || child.parentId) {
     return nodes
   }
 
@@ -515,7 +535,7 @@ export function createGroupForNode(
   }
 
   const updatedChild = asGroupChild(
-    child as ArchitectureNodeType,
+    child,
     groupId,
     {
       x: GROUP_CHILD_PADDING,
@@ -523,6 +543,15 @@ export function createGroupForNode(
     },
   )
 
-  const withoutChild = nodes.filter((node) => node.id !== nodeId)
-  return normalizeNodes([...withoutChild, groupNode, updatedChild])
+  const childIndex = nodes.findIndex((node) => node.id === nodeId)
+  if (childIndex === -1) {
+    return nodes
+  }
+
+  return normalizeNodes([
+    ...nodes.slice(0, childIndex),
+    groupNode,
+    updatedChild,
+    ...nodes.slice(childIndex + 1),
+  ])
 }
