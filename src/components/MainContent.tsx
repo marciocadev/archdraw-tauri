@@ -21,7 +21,7 @@ import { LambdaFunctionNode } from "./nodes/aws/LambdaFunctionNode";
 import { SNSTopicNode } from "./nodes/aws/SNSTopicNode";
 import type { AwsComponentNodeType } from "./nodes/aws/awsComponentNodeTypes";
 import { GroupNode } from "./nodes/GroupNode";
-import { awsComponentsByKey, DND_MIME_TYPE, getNodeTypeForComponentKey } from "./utils/awsComponents";
+import { awsComponentsByKey, getNodeTypeForComponentKey, readDroppedComponentKey } from "./utils/awsComponents";
 import { isValidArchitectureConnection } from "./utils/connectionRules";
 import {
   DEFAULT_CONNECTION_PATH_TYPE,
@@ -268,7 +268,11 @@ const MainContentFlow = (props: MainContentProps) => {
   const onDrop = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
 
-    const componentKey = event.dataTransfer.getData(DND_MIME_TYPE)
+    const componentKey = readDroppedComponentKey(event.dataTransfer)
+    if (!componentKey) {
+      return
+    }
+
     const component = awsComponentsByKey[componentKey]
 
     if (!component) {

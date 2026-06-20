@@ -6,12 +6,13 @@ export interface DiagramButtonProps {
   component: string;
   children: ReactNode;
   onDragStart?: (event: DragEvent<HTMLButtonElement>, diagramKey: string) => void
+  onDragEnd?: () => void
   onClick?: () => void
 }
 
 export const DiagramButton = (props: DiagramButtonProps) => {
   const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const { type, component, children, diagramKey, onClick, onDragStart } = props;
+  const { type, component, children, diagramKey, onClick, onDragStart, onDragEnd } = props;
 
   return (
     <button
@@ -20,6 +21,7 @@ export const DiagramButton = (props: DiagramButtonProps) => {
       ref={buttonRef}
       onClick={onClick}
       onDragStart={(event) => onDragStart?.(event, diagramKey)}
+      onDragEnd={onDragEnd}
       className="flex w-full items-center justify-between gap-3 rounded-xl border p-2 text-left
         bg-slate-50 text-slate-700
         dark:border-slate-500 dark:bg-mist-900 dark:text-slate-200

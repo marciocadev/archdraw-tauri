@@ -1,6 +1,11 @@
 import type { DragEvent } from "react"
 import { DiagramButton } from "./button/DiagramButton"
-import { awsComponents, DND_MIME_TYPE } from "./utils/awsComponents"
+import {
+  awsComponents,
+  clearPendingDragComponentKey,
+  DND_MIME_TYPE,
+  setPendingDragComponentKey,
+} from "./utils/awsComponents"
 
 export interface LeftSideBarProps {
   showLeftSideBar: boolean
@@ -13,8 +18,14 @@ export const LeftSideBar = (props: LeftSideBarProps) => {
     event: DragEvent<HTMLButtonElement>,
     diagramKey: string,
   ) {
-    event.dataTransfer.setData(DND_MIME_TYPE, diagramKey);
-    event.dataTransfer.effectAllowed = "move";
+    setPendingDragComponentKey(diagramKey)
+    event.dataTransfer.setData(DND_MIME_TYPE, diagramKey)
+    event.dataTransfer.setData("text/plain", diagramKey)
+    event.dataTransfer.effectAllowed = "move"
+  }
+
+  const handleDiagramDragEnd = function () {
+    clearPendingDragComponentKey()
   }
 
   if (!showLeftSideBar) {
@@ -33,6 +44,7 @@ export const LeftSideBar = (props: LeftSideBarProps) => {
             component={component.component}
             diagramKey={component.key}
             onDragStart={handleDiagramDragStart}
+            onDragEnd={handleDiagramDragEnd}
           >
             <Svg />
           </DiagramButton>

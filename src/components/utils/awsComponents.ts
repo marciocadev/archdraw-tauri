@@ -98,6 +98,38 @@ export const awsComponentsByKey = Object.fromEntries(
 
 export const DND_MIME_TYPE = "application/x-architecture-component";
 
+let pendingDragComponentKey: string | null = null
+
+export function setPendingDragComponentKey(key: string): void {
+  pendingDragComponentKey = key
+}
+
+export function clearPendingDragComponentKey(): void {
+  pendingDragComponentKey = null
+}
+
+export function readDroppedComponentKey(dataTransfer: DataTransfer): string | null {
+  const custom = dataTransfer.getData(DND_MIME_TYPE)
+  if (custom && awsComponentsByKey[custom]) {
+    pendingDragComponentKey = null
+    return custom
+  }
+
+  const plain = dataTransfer.getData("text/plain")
+  if (plain && awsComponentsByKey[plain]) {
+    pendingDragComponentKey = null
+    return plain
+  }
+
+  const pending = pendingDragComponentKey
+  pendingDragComponentKey = null
+  if (pending && awsComponentsByKey[pending]) {
+    return pending
+  }
+
+  return null
+}
+
 export function getNodeTypeForComponentKey(
   componentKey: string,
 ): AwsComponentNodeTypeName | undefined {
