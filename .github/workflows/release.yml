@@ -2,6 +2,11 @@ name: release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag da release (ex: v0.1.0)'
+        required: true
+        default: 'v0.1.0'
   push:
     tags:
       - 'v*'
@@ -62,19 +67,26 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build and release
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NO_STRIP: 'true'
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: ArchDraw ${{ github.ref_name }}
+          tagName: ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
+          releaseName: ArchDraw ${{ github.event_name == 'workflow_dispatch' && inputs.version || github.ref_name }}
           releaseBody: |
             Instaladores do ArchDraw para Windows, macOS e Linux.
 
             - **Windows**: `.msi` (recomendado) ou `.exe`
             - **macOS**: `.dmg` (universal — Apple Silicon + Intel)
             - **Linux**: `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL), `.AppImage` (portátil)
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
+          uploadWorkflowArtifacts: true
           args: ${{ matrix.args }}
+
+      - name: Resumo do build
+        run: |
+          echo "Release: ${{ steps.tauri.outputs.releaseHtmlUrl }}"
+          echo "Artefatos: ${{ steps.tauri.outputs.artifactPaths }}"
