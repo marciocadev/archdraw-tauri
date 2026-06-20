@@ -2,6 +2,10 @@ import { getCurrentWindow } from "@tauri-apps/api/window"
 import { useEffect, useRef, useState } from "react"
 import { HideHorizontalLeftBarSvg } from "./svg/SpliHorizontalLeftBarSvg"
 import { ThemeModeSvg } from "./svg/ThemeModeSvg"
+import { ChromeCloseButton, ChromeCloseButtonSvg } from "./svg/ChromeCloseButtonSvg"
+import { ChromeMinimizeButtonSvg } from "./svg/ChromeMinimizeButtonSvg"
+import { ChromeRestoreButtonSvg } from "./svg/ChromeRestoreButtonSvg"
+import { ChromeMaximizeButtonSvg } from "./svg/ChromeMaximizeButtonSvg"
 
 export interface WindowsTitleBarProps {
   colorMode: string
@@ -19,6 +23,8 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
     onNew,
     onThemeToggle,
   } = props
+
+  const [isMaximized, setIsMaximized] = useState(false)
 
   const [isFileMenuOpen, setIsFileMenuOpen] = useState(false)
   const fileMenuRef = useRef<HTMLDivElement>(null)
@@ -50,10 +56,12 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
 
   const handleMinimize = async () => {
     await getCurrentWindow().minimize()
+    setIsMaximized(await getCurrentWindow().isMaximized())
   }
 
   const handleToggleMaximize = async () => {
     await getCurrentWindow().toggleMaximize()
+    setIsMaximized(await getCurrentWindow().isMaximized())
   }
 
   const handleClose = async () => {
@@ -62,11 +70,10 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
 
   return (
     <div
-      data-tauri-drag-region
       className="flex h-8 w-full shrink-0 items-center border-b border-slate-300 bg-mist-200 text-slate-700
         select-none dark:border-slate-600 dark:bg-mist-900 dark:text-slate-200"
     >
-      <div className="flex h-full items-center gap-2 pl-2">
+      <div className="flex h-full shrink-0 items-center gap-2 pl-2">
         <img
           src="/app-icon.png"
           alt="ArchDraw"
@@ -109,7 +116,7 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
 
       <div data-tauri-drag-region className="h-full min-w-0 flex-1" />
 
-      <div className="flex h-full items-center">
+      <div className="flex h-full shrink-0 items-center">
         <button
           type="button"
           className="flex h-8 w-8 items-center justify-center hover:bg-slate-300/70 dark:hover:bg-slate-700"
@@ -132,7 +139,8 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
           className="flex h-8 w-11 items-center justify-center hover:bg-slate-300/70 dark:hover:bg-slate-700"
           onClick={() => void handleMinimize()}
         >
-          <span className="block h-px w-3 bg-current" />
+          {/* <span className="block h-px w-3 bg-current" /> */}
+          <ChromeMinimizeButtonSvg />
         </button>
 
         <button
@@ -141,7 +149,8 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
           className="flex h-8 w-11 items-center justify-center hover:bg-slate-300/70 dark:hover:bg-slate-700"
           onClick={() => void handleToggleMaximize()}
         >
-          <span className="block h-2.5 w-2.5 border border-current" />
+          {/* <span className="block h-2.5 w-2.5 border border-current" /> */}
+          {isMaximized ? <ChromeRestoreButtonSvg /> : <ChromeMaximizeButtonSvg />}
         </button>
 
         <button
@@ -150,7 +159,8 @@ export const WindowsTitleBar = (props: WindowsTitleBarProps) => {
           className="flex h-8 w-11 items-center justify-center hover:bg-red-600 hover:text-white"
           onClick={() => void handleClose()}
         >
-          <span className="text-lg leading-none">×</span>
+          {/* <span className="text-lg leading-none">×</span> */}
+          <ChromeCloseButtonSvg />
         </button>
       </div>
     </div>

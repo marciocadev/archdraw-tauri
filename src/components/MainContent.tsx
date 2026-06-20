@@ -14,14 +14,15 @@ import {
   type NodeChange,
   type OnNodeDrag,
 } from "@xyflow/react"
-import { useCallback, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { ConnectionConfigPanel } from "./ConnectionConfigPanel";
 import { ArchitectureEdge, type ArchitectureEdgeData, type ArchitectureEdgeType } from "./edges/ArchitectureEdge";
 import { LambdaFunctionNode } from "./nodes/aws/LambdaFunctionNode";
 import { SNSTopicNode } from "./nodes/aws/SNSTopicNode";
 import type { AwsComponentNodeType } from "./nodes/aws/awsComponentNodeTypes";
 import { GroupNode } from "./nodes/GroupNode";
-import { awsComponentsByKey, getNodeTypeForComponentKey, readDroppedComponentKey } from "./utils/awsComponents";
+import { awsComponentsByKey, getNodeTypeForComponentKey } from "./utils/awsComponents";
+import { subscribeSidebarPointerDrop } from "./utils/sidebarPointerDrag";
 import { isValidArchitectureConnection } from "./utils/connectionRules";
 import {
   DEFAULT_CONNECTION_PATH_TYPE,
@@ -260,19 +261,7 @@ const MainContentFlow = (props: MainContentProps) => {
     }
   }, [handleCancelConnectionPanel, selectedEdgeId])
 
-  const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = "move"
-  }, [])
-
-  const onDrop = useCallback((event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-
-    const componentKey = readDroppedComponentKey(event.dataTransfer)
-    if (!componentKey) {
-      return
-    }
-
+  const addComponentAtPosition = useCallback((componentKey: string, clientX: number, clientY: number) => {
     const component = awsComponentsByKey[componentKey]
 
     if (!component) {
@@ -280,8 +269,8 @@ const MainContentFlow = (props: MainContentProps) => {
     }
 
     const position = screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
+      x: clientX,
+      y: clientY,
     })
 
     const nodeType = getNodeTypeForComponentKey(componentKey)
@@ -324,6 +313,12 @@ const MainContentFlow = (props: MainContentProps) => {
     })
   }, [getInternalNode, screenToFlowPosition, setNodes])
 
+  useEffect(() => {
+    return subscribeSidebarPointerDrop(({ componentKey, clientX, clientY }) => {
+      addComponentAtPosition(componentKey, clientX, clientY)
+    })
+  }, [addComponentAtPosition])
+
   const flowProps = useMemo(() => ({ hideAttribution: true as const }), [])
 
   return (
@@ -348,8 +343,6 @@ const MainContentFlow = (props: MainContentProps) => {
         onPaneClick={onPaneClick}
         isValidConnection={isValidConnection}
         onNodeDragStop={onNodeDragStop}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
         colorMode={colorMode}
         proOptions={flowProps}>
         <Background />
