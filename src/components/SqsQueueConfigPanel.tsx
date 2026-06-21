@@ -1,6 +1,10 @@
-import { useEffect, useState, type ChangeEvent } from "react"
+import { type ChangeEvent } from "react"
 import { ConfigPanelLayout } from "./config/ConfigPanelLayout"
+import { SqsQueueSettingsFields } from "./sqs/SqsQueueSettingsFields"
+import { useSqsQueueSettingsForm } from "./sqs/useSqsQueueSettingsForm"
 import {
+  SQS_QUEUE_NAME_MAX_LENGTH,
+  SQS_QUEUE_NAME_RULES_TEXT,
   type SqsQueueConfig,
 } from "./utils/sqsQueueTypes"
 
@@ -13,37 +17,82 @@ export interface SqsQueueConfigPanelProps {
 
 export const SqsQueueConfigPanel = (props: SqsQueueConfigPanelProps) => {
   const { isOpen, initialConfig, onConfirm, onCancel } = props
-  const [config, setConfig] = useState<SqsQueueConfig>(initialConfig)
-
-  useEffect(() => {
-    if (isOpen) {
-      setConfig(initialConfig)
-    }
-  }, [initialConfig, isOpen])
+  const {
+    config,
+    setConfig,
+    errors,
+    visibilityLimits,
+    deliveryDelayLimits,
+    messageRetentionLimits,
+    handleVisibilityTimeoutValueChange,
+    handleVisibilityTimeoutUnitChange,
+    handleDeliveryDelayValueChange,
+    handleDeliveryDelayUnitChange,
+    handleReceiveMessageWaitTimeChange,
+    handleMessageRetentionValueChange,
+    handleMessageRetentionUnitChange,
+    handleMaximumMessageSizeChange,
+    validateSettings,
+  } = useSqsQueueSettingsForm(isOpen, initialConfig)
 
   const handleQueueNameChange = (event: ChangeEvent<HTMLInputElement>) => {
     setConfig((current) => ({ ...current, queueName: event.target.value }))
+  }
+
+  const handleConfirm = () => {
+    const validatedSettings = validateSettings()
+    if (!validatedSettings) {
+      return
+    }
+
+    onConfirm({
+      ...validatedSettings,
+      queueName: config.queueName.trim(),
+    })
   }
 
   return (
     <ConfigPanelLayout
       isOpen={isOpen}
       title="SQS Queue Settings"
-      onConfirm={() => onConfirm(config)}
+      onConfirm={handleConfirm}
       onCancel={onCancel}>
-      <div className="flex flex-col gap-1">
-        <label
-          htmlFor="sqs-queue-name"
-          className="text-xs font-medium text-slate-500 dark:text-slate-400">
-          Queue Name
-        </label>
-        <input
-          id="sqs-queue-name"
-          type="text"
-          value={config.queueName}
-          onChange={handleQueueNameChange}
-          placeholder="Enter the queue name"
-          className="w-full rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <label
+            htmlFor="sqs-queue-name"
+            className="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Queue Name
+          </label>
+          <input
+            id="sqs-queue-name"
+            type="text"
+            value={config.queueName}
+            onChange={handleQueueNameChange}
+            maxLength={SQS_QUEUE_NAME_MAX_LENGTH}
+            placeholder="Enter the queue name"
+            className="w-full rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
+          />
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            {SQS_QUEUE_NAME_RULES_TEXT}
+          </p>
+        </div>
+
+        <SqsQueueSettingsFields
+          idPrefix="sqs-queue"
+          config={config}
+          errors={errors}
+          visibilityLimits={visibilityLimits}
+          deliveryDelayLimits={deliveryDelayLimits}
+          messageRetentionLimits={messageRetentionLimits}
+          onVisibilityTimeoutValueChange={handleVisibilityTimeoutValueChange}
+          onVisibilityTimeoutUnitChange={handleVisibilityTimeoutUnitChange}
+          onDeliveryDelayValueChange={handleDeliveryDelayValueChange}
+          onDeliveryDelayUnitChange={handleDeliveryDelayUnitChange}
+          onReceiveMessageWaitTimeChange={handleReceiveMessageWaitTimeChange}
+          onMessageRetentionValueChange={handleMessageRetentionValueChange}
+          onMessageRetentionUnitChange={handleMessageRetentionUnitChange}
+          onMaximumMessageSizeChange={handleMaximumMessageSizeChange}
         />
       </div>
     </ConfigPanelLayout>

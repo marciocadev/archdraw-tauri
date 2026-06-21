@@ -341,11 +341,31 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
   }, [updateConfiguringNodeData])
 
   const handleConfirmSqsQueueConfig = useCallback((config: SqsQueueConfig) => {
-    updateConfiguringNodeData({ queueName: config.queueName })
+    updateConfiguringNodeData({
+      queueName: config.queueName,
+      visibilityTimeoutValue: config.visibilityTimeoutValue,
+      visibilityTimeoutUnit: config.visibilityTimeoutUnit,
+      deliveryDelayValue: config.deliveryDelayValue,
+      deliveryDelayUnit: config.deliveryDelayUnit,
+      receiveMessageWaitTime: config.receiveMessageWaitTime,
+      messageRetentionValue: config.messageRetentionValue,
+      messageRetentionUnit: config.messageRetentionUnit,
+      maximumMessageSizeKib: config.maximumMessageSizeKib,
+    })
   }, [updateConfiguringNodeData])
 
   const handleConfirmSqsDlqConfig = useCallback((config: SqsDlqConfig) => {
-    updateConfiguringNodeData({ dlqName: config.dlqName })
+    updateConfiguringNodeData({
+      dlqName: config.dlqName,
+      visibilityTimeoutValue: config.visibilityTimeoutValue,
+      visibilityTimeoutUnit: config.visibilityTimeoutUnit,
+      deliveryDelayValue: config.deliveryDelayValue,
+      deliveryDelayUnit: config.deliveryDelayUnit,
+      receiveMessageWaitTime: config.receiveMessageWaitTime,
+      messageRetentionValue: config.messageRetentionValue,
+      messageRetentionUnit: config.messageRetentionUnit,
+      maximumMessageSizeKib: config.maximumMessageSizeKib,
+    })
   }, [updateConfiguringNodeData])
 
   const handleConfirmConnectionPanel = useCallback((draft: ConnectionDraft) => {

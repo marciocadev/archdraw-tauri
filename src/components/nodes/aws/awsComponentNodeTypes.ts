@@ -1,5 +1,6 @@
 import type { Node } from "@xyflow/react"
 import type { SnsTopicType } from "../../utils/snsTopicTypes"
+import type { VisibilityTimeoutUnit, DeliveryDelayUnit, MessageRetentionUnit } from "../../utils/sqsQueueTypes"
 
 export const AWS_COMPONENT_NODE_TYPES = ["lambda-function", "sns-topic", "sqs-queue", "sqs-dlq"] as const
 
@@ -14,6 +15,14 @@ export interface AwsComponentNodeData extends Record<string, unknown> {
   topicType?: SnsTopicType;
   functionName?: string;
   queueName?: string;
+  visibilityTimeoutValue?: number;
+  visibilityTimeoutUnit?: VisibilityTimeoutUnit;
+  deliveryDelayValue?: number;
+  deliveryDelayUnit?: DeliveryDelayUnit;
+  receiveMessageWaitTime?: number;
+  messageRetentionValue?: number;
+  messageRetentionUnit?: MessageRetentionUnit;
+  maximumMessageSizeKib?: number;
   dlqName?: string;
 }
 
