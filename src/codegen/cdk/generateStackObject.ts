@@ -1,15 +1,5 @@
-import { toCamelCase, toPascalCase } from "../sanitizeNames"
 import type { DiagramResources } from "../types"
-
-const renderSnsTopicConstruct = (topic: DiagramResources["snsTopics"][number], index: number) => {
-  const logicalId = toPascalCase(topic.topicName, `SnsTopic${index + 1}`)
-  const variableName = toCamelCase(topic.topicName, `SnsTopic${index + 1}`)
-  const fifoOption = topic.topicType === "fifo" ? "\n      fifo: true," : ""
-
-  return `    const ${variableName} = new sns.Topic(this, '${logicalId}', {
-      topicName: '${topic.topicName}',${fifoOption}
-    });`
-}
+import { renderSnsTopicConstruct } from "./infra/renderSnsTopicObject"
 
 export const generateStackObject = (stackClassName: string, resources: DiagramResources) => {
   const snsConstructs = resources.snsTopics.map(renderSnsTopicConstruct).join("\n\n")
