@@ -7,21 +7,27 @@ import { renderSqsDlqObject } from "./infra/renderSqsDlqObject"
 import { renderSqsQueueObject } from "./infra/renderSqsQueueObject"
 
 export const generateStackObject = (stackClassName: string, resources: DiagramResources) => {
+  // Build contexts
   const snsContext = buildSnsCdkContext(resources)
   const sqsContext = buildSqsCdkContext(resources)
+  // Topics
   const snsConstructs = resources.snsTopics
     .map(renderSnsTopicConstruct)
     .join("\n\n")
+  // DLQs
   const sqsDlqConstructs = resources.sqsDlqs
     .map((dlq) => renderSqsDlqObject(dlq, sqsContext))
     .join("\n\n")
+  // Queues
   const sqsQueueConstructs = resources.sqsQueues
     .map((queue) => renderSqsQueueObject(queue, sqsContext))
     .join("\n\n")
+  // Subscriptions
   const snsSqsSubscriptionConstructs = resources.snsSqsSubscriptions
     .map((subscription) => renderSnsSqsSubscription(subscription, snsContext, sqsContext))
     .filter(Boolean)
     .join("\n\n")
+  // Resource constructs
   const resourceConstructs = [
     snsConstructs,
     sqsDlqConstructs,
@@ -32,6 +38,7 @@ export const generateStackObject = (stackClassName: string, resources: DiagramRe
     .join("\n\n")
   const resourceBlock = resourceConstructs.length > 0 ? `\n${resourceConstructs}\n` : "\n"
 
+  // Imports
   const imports = [
     resources.snsTopics.length > 0 ? `import * as sns from 'aws-cdk-lib/aws-sns';` : "",
     resources.snsSqsSubscriptions.length > 0
