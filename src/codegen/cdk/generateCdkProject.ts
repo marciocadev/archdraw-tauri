@@ -13,7 +13,7 @@ import { generateTsConfigObject } from "./generateTsConfigObject"
 export function generateCdkProject(stackName: string, resources: DiagramResources): ProjectFile[] {
   const stackClassName = toPascalCase(stackName, "ArchDrawStack")
   const stackFileName = stackName
-  const lambdaAssetFiles = generateLambdaAssetFiles(resources.lambdaFunctions)
+  const lambdaAssetFiles = generateLambdaAssetFiles(resources)
 
   return [
     {
