@@ -2,6 +2,7 @@ import { join } from "@tauri-apps/api/path"
 import { invoke } from "@tauri-apps/api/core"
 import { open } from "@tauri-apps/plugin-dialog"
 import type { FlowNode } from "../components/utils/groupNode"
+import type { ArchitectureEdgeType } from "../components/edges/ArchitectureEdge"
 import { extractDiagramResources } from "../codegen/extractDiagramResources"
 import { generateProjectFiles } from "../codegen/generateProjectFiles"
 import { toStackDirectoryName } from "../codegen/sanitizeNames"
@@ -16,13 +17,14 @@ export async function writeProjectToDirectory(
   generatorType: CodeGeneratorType,
   stackName: string,
   nodes: FlowNode[],
+  edges: ArchitectureEdgeType[] = [],
 ): Promise<boolean> {
   if (!isTauriRuntime()) {
     return false
   }
 
   try {
-    const resources = extractDiagramResources(nodes)
+    const resources = extractDiagramResources(nodes, edges)
     const files = generateProjectFiles({
       generatorType,
       stackName,
@@ -66,6 +68,7 @@ export async function generateCodeProject(
   generatorType: CodeGeneratorType,
   stackName: string,
   nodes: FlowNode[],
+  edges: ArchitectureEdgeType[] = [],
 ): Promise<boolean> {
   const directoryName = toStackDirectoryName(stackName)
   if (!directoryName) {
@@ -78,5 +81,5 @@ export async function generateCodeProject(
   }
 
   const projectDirectory = await join(parentDirectory, directoryName)
-  return writeProjectToDirectory(projectDirectory, generatorType, stackName, nodes)
+  return writeProjectToDirectory(projectDirectory, generatorType, stackName, nodes, edges)
 }

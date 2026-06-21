@@ -1,17 +1,15 @@
-import { toCamelCase, toPascalCase } from "../../sanitizeNames"
+import type { SqsCdkContext } from "../buildSqsCdkContext"
 import type { DiagramResources } from "../../types"
 import { renderSqsQueueSettingsOptions } from "./renderSqsQueueSettingsOptions"
 
 export const renderSqsDlqObject = (
   queue: DiagramResources["sqsDlqs"][number],
-  index: number,
+  context: SqsCdkContext,
 ) => {
-  const dlqName = queue.dlqName.trim() === "" ? `SqsDlq${index + 1}` : queue.dlqName.trim()
-  const logicalId = toPascalCase(queue.dlqName, `SqsDlq${index + 1}`)
-  const variableName = toCamelCase(queue.dlqName, `sqsDlq${index + 1}`)
+  const identifiers = context.dlqs[queue.nodeId]
   const settingsOptions = renderSqsQueueSettingsOptions(queue)
 
-  return `    const ${variableName} = new sqs.Queue(this, '${logicalId}', {
-      queueName: '${queue.dlqName}',${settingsOptions}
+  return `    const ${identifiers.variableName} = new sqs.Queue(this, '${identifiers.logicalId}', {
+      queueName: '${identifiers.queueName}',${settingsOptions}
     });`
 }

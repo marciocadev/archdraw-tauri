@@ -58,7 +58,8 @@ function App() {
     }
 
     const nodes = diagramRef.current?.getNodes() ?? []
-    void generateCodeProject(generatorType, stackName, nodes)
+    const edges = diagramRef.current?.getEdges() ?? []
+    void generateCodeProject(generatorType, stackName, nodes, edges)
   }
 
   return (

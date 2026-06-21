@@ -1,17 +1,36 @@
-import { toCamelCase, toPascalCase } from "../../sanitizeNames"
+import type { SqsCdkContext } from "../buildSqsCdkContext"
 import type { DiagramResources } from "../../types"
+import { DEFAULT_MAX_RECEIVE_COUNT } from "../../../components/utils/dlqConnectionTypes"
 import { renderSqsQueueSettingsOptions } from "./renderSqsQueueSettingsOptions"
+
+function renderDeadLetterQueueOption(
+  queue: DiagramResources["sqsQueues"][number],
+  context: SqsCdkContext,
+): string {
+  if (!queue.deadLetterQueueNodeId) {
+    return ""
+  }
+
+  const dlqIdentifiers = context.dlqs[queue.deadLetterQueueNodeId]
+  if (!dlqIdentifiers) {
+    return ""
+  }
+
+  return `\n      deadLetterQueue: {
+        queue: ${dlqIdentifiers.variableName},
+        maxReceiveCount: ${queue.maxReceiveCount ?? DEFAULT_MAX_RECEIVE_COUNT},
+      },`
+}
 
 export const renderSqsQueueObject = (
   queue: DiagramResources["sqsQueues"][number],
-  index: number,
+  context: SqsCdkContext,
 ) => {
-  const queueName = queue.queueName.trim() === "" ? `SqsDlq${index + 1}` : queue.queueName.trim()
-  const logicalId = toPascalCase(queue.queueName, `SqsQueue${index + 1}`)
-  const variableName = toCamelCase(queue.queueName, `sqsQueue${index + 1}`)
+  const identifiers = context.queues[queue.nodeId]
   const settingsOptions = renderSqsQueueSettingsOptions(queue)
+  const deadLetterQueueOption = renderDeadLetterQueueOption(queue, context)
 
-  return `    const ${variableName} = new sqs.Queue(this, '${logicalId}', {
-      queueName: '${queueName}',${settingsOptions}
+  return `    const ${identifiers.variableName} = new sqs.Queue(this, '${identifiers.logicalId}', {
+      queueName: '${identifiers.queueName}',${settingsOptions}${deadLetterQueueOption}
     });`
 }

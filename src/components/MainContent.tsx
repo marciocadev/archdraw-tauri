@@ -39,7 +39,20 @@ import { isValidArchitectureConnection } from "./utils/connectionRules";
 import {
   DEFAULT_CONNECTION_PATH_TYPE,
   type ConnectionDraft,
-} from "./utils/connectionTypes";
+} from "./utils/connectionTypes"
+import {
+  DEFAULT_MAX_RECEIVE_COUNT,
+  clampMaxReceiveCount,
+  getMaxReceiveCount,
+} from "./utils/dlqConnectionTypes"
+import { isSnsToSqsConnection, isSnsToSqsConnectionEdge } from "./utils/connectionMetadata"
+import {
+  DEFAULT_RAW_MESSAGE_DELIVERY,
+  getRawMessageDelivery,
+} from "./utils/snsSqsConnectionTypes"
+import {
+  getMessageBodyFilters,
+} from "./utils/messageBodyFilterTypes";
 import {
   type SnsTopicConfig,
 } from "./utils/snsTopicTypes";
@@ -91,11 +104,29 @@ function generateNodeId(): string {
   return `node_${crypto.randomUUID()}`;
 }
 
-function getConnectionDraft(edge: ArchitectureEdgeType | undefined): ConnectionDraft {
-  return {
+function getConnectionDraft(
+  edge: ArchitectureEdgeType | undefined,
+  nodes: FlowNode[],
+): ConnectionDraft {
+  const draft: ConnectionDraft = {
     label: edge?.data?.label ?? "",
     pathType: edge?.data?.pathType ?? DEFAULT_CONNECTION_PATH_TYPE,
   }
+
+  if (edge?.sourceHandle === "dlq") {
+    draft.maxReceiveCount = getMaxReceiveCount(edge.data?.maxReceiveCount)
+  }
+
+  if (edge && isSnsToSqsConnectionEdge(edge, nodes)) {
+    draft.rawMessageDelivery = getRawMessageDelivery(edge.data?.rawMessageDelivery)
+    draft.messageBodyFilters = getMessageBodyFilters(edge.data?.messageBodyFilters)
+  }
+
+  return draft
+}
+
+function isDlqConnectionEdge(edge: ArchitectureEdgeType | undefined): boolean {
+  return edge?.sourceHandle === "dlq"
 }
 
 export interface MainContentProps {
@@ -106,6 +137,7 @@ export interface DiagramCanvasHandle {
   saveDiagram: () => Promise<boolean>
   openDiagram: () => Promise<boolean>
   getNodes: () => FlowNode[]
+  getEdges: () => ArchitectureEdgeType[]
 }
 
 const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props, ref) => {
@@ -154,6 +186,7 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
       return true
     },
     getNodes: () => nodesRef.current,
+    getEdges: () => edgesRef.current,
   }), [setEdges, setNodes])
 
   const selectedEdge = useMemo(
@@ -162,8 +195,18 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
   )
 
   const connectionDraft = useMemo(
-    () => getConnectionDraft(selectedEdge),
+    () => getConnectionDraft(selectedEdge, nodes),
+    [selectedEdge, nodes],
+  )
+
+  const isSelectedEdgeDlqConnection = useMemo(
+    () => isDlqConnectionEdge(selectedEdge),
     [selectedEdge],
+  )
+
+  const isSelectedEdgeSnsSqsConnection = useMemo(
+    () => isSnsToSqsConnectionEdge(selectedEdge, nodes),
+    [selectedEdge, nodes],
   )
 
   const configuringNode = useMemo(() => {
@@ -209,6 +252,15 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
           label: "",
           labelPosition: 0.5,
           pathType: DEFAULT_CONNECTION_PATH_TYPE,
+          ...(connection.sourceHandle === "dlq"
+            ? { maxReceiveCount: DEFAULT_MAX_RECEIVE_COUNT }
+            : {}),
+          ...(isSnsToSqsConnection(connection, nodes)
+            ? {
+              rawMessageDelivery: DEFAULT_RAW_MESSAGE_DELIVERY,
+              messageBodyFilters: [],
+            }
+            : {}),
         },
       }, currentEdges))
     },
@@ -273,6 +325,15 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
         label: edge.data?.label ?? "",
         labelPosition: edge.data?.labelPosition ?? 0.5,
         pathType: edge.data?.pathType ?? DEFAULT_CONNECTION_PATH_TYPE,
+        ...(edge.sourceHandle === "dlq"
+          ? { maxReceiveCount: getMaxReceiveCount(edge.data?.maxReceiveCount) }
+          : {}),
+        ...(isSnsToSqsConnectionEdge(edge, nodesRef.current)
+          ? {
+            rawMessageDelivery: getRawMessageDelivery(edge.data?.rawMessageDelivery),
+            messageBodyFilters: getMessageBodyFilters(edge.data?.messageBodyFilters),
+          }
+          : {}),
       },
     }
     setSelectedEdgeId(edge.id)
@@ -382,6 +443,15 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
               ...edge.data,
               label: draft.label,
               pathType: draft.pathType,
+              ...(edge.sourceHandle === "dlq"
+                ? { maxReceiveCount: clampMaxReceiveCount(draft.maxReceiveCount ?? DEFAULT_MAX_RECEIVE_COUNT) }
+                : {}),
+              ...(isSnsToSqsConnectionEdge(edge, nodesRef.current)
+                ? {
+                  rawMessageDelivery: getRawMessageDelivery(draft.rawMessageDelivery),
+                  messageBodyFilters: getMessageBodyFilters(draft.messageBodyFilters),
+                }
+                : {}),
             },
           }
           : edge,
@@ -522,6 +592,8 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
       <div className="relative h-full w-full dark:bg-slate-700 bg-slate-50">
         <ConnectionConfigPanel
           isOpen={selectedEdgeId !== null}
+          isDlqConnection={isSelectedEdgeDlqConnection}
+          isSnsSqsConnection={isSelectedEdgeSnsSqsConnection}
           initialDraft={connectionDraft}
           onConfirm={handleConfirmConnectionPanel}
           onCancel={handleCancelConnectionPanel}
