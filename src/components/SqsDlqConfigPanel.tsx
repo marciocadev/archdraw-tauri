@@ -1,4 +1,4 @@
-import { type ChangeEvent } from "react"
+import { useState, type ChangeEvent } from "react"
 import { ConfigPanelLayout } from "./config/ConfigPanelLayout"
 import { SqsQueueSettingsFields } from "./sqs/SqsQueueSettingsFields"
 import { useSqsQueueSettingsForm } from "./sqs/useSqsQueueSettingsForm"
@@ -17,6 +17,7 @@ export interface SqsDlqConfigPanelProps {
 
 export const SqsDlqConfigPanel = (props: SqsDlqConfigPanelProps) => {
   const { isOpen, initialConfig, onConfirm, onCancel } = props
+  const [configHidden, setConfigHidden] = useState(true)
   const {
     config,
     setConfig,
@@ -78,22 +79,42 @@ export const SqsDlqConfigPanel = (props: SqsDlqConfigPanelProps) => {
           </p>
         </div>
 
-        <SqsQueueSettingsFields
-          idPrefix="sqs-dlq"
-          config={config}
-          errors={errors}
-          visibilityLimits={visibilityLimits}
-          deliveryDelayLimits={deliveryDelayLimits}
-          messageRetentionLimits={messageRetentionLimits}
-          onVisibilityTimeoutValueChange={handleVisibilityTimeoutValueChange}
-          onVisibilityTimeoutUnitChange={handleVisibilityTimeoutUnitChange}
-          onDeliveryDelayValueChange={handleDeliveryDelayValueChange}
-          onDeliveryDelayUnitChange={handleDeliveryDelayUnitChange}
-          onReceiveMessageWaitTimeChange={handleReceiveMessageWaitTimeChange}
-          onMessageRetentionValueChange={handleMessageRetentionValueChange}
-          onMessageRetentionUnitChange={handleMessageRetentionUnitChange}
-          onMaximumMessageSizeChange={handleMaximumMessageSizeChange}
-        />
+        <button
+          type="button"
+          onClick={() => setConfigHidden(!configHidden)}
+          className="inline-flex items-center gap-1.5 self-start px-2 py-1 text-xs text-slate-500 dark:text-slate-400 cursor-pointer rounded-full hover:bg-mist-100 dark:hover:bg-mist-950">
+          <span>Configuration</span>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="size-4 shrink-0 transition-none"
+            style={{ transform: `${configHidden ? "rotate(0deg)" : "rotate(90deg)"}` }}>
+            <path d="M9 6l6 6-6 6" />
+          </svg>
+        </button>
+
+        <div className={`${configHidden ? "hidden" : ""}`}>
+          <SqsQueueSettingsFields
+            idPrefix="sqs-dlq"
+            config={config}
+            errors={errors}
+            visibilityLimits={visibilityLimits}
+            deliveryDelayLimits={deliveryDelayLimits}
+            messageRetentionLimits={messageRetentionLimits}
+            onVisibilityTimeoutValueChange={handleVisibilityTimeoutValueChange}
+            onVisibilityTimeoutUnitChange={handleVisibilityTimeoutUnitChange}
+            onDeliveryDelayValueChange={handleDeliveryDelayValueChange}
+            onDeliveryDelayUnitChange={handleDeliveryDelayUnitChange}
+            onReceiveMessageWaitTimeChange={handleReceiveMessageWaitTimeChange}
+            onMessageRetentionValueChange={handleMessageRetentionValueChange}
+            onMessageRetentionUnitChange={handleMessageRetentionUnitChange}
+            onMaximumMessageSizeChange={handleMaximumMessageSizeChange}
+          />
+        </div>
       </div>
     </ConfigPanelLayout>
   )
