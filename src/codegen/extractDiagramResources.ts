@@ -1,5 +1,6 @@
 import type { ArchitectureEdgeType } from "../components/edges/ArchitectureEdge"
 import type { FlowNode } from "../components/utils/groupNode"
+import { getLambdaFunctionConfig, type LambdaFunctionConfigInput } from "../components/utils/lambdaFunctionTypes"
 import { getMaxReceiveCount } from "../components/utils/dlqConnectionTypes"
 import { getMessageBodyFilters } from "../components/utils/messageBodyFilterTypes"
 import { getRawMessageDelivery } from "../components/utils/snsSqsConnectionTypes"
@@ -7,10 +8,13 @@ import { getSnsTopicConfig, type SnsTopicConfigInput } from "../components/utils
 import { getSqsDlqConfig, type SqsDlqConfigInput } from "../components/utils/sqsDlqTypes"
 import { getSqsQueueConfig, type SqsQueueConfigInput } from "../components/utils/sqsQueueTypes"
 import type {
+  DiagramLambdaFunction,
   DiagramResources,
+  DiagramSnsLambdaSubscription,
   DiagramSnsSqsSubscription,
   DiagramSnsTopic,
   DiagramSqsDlq,
+  DiagramSqsLambdaEventSource,
   DiagramSqsQueue,
 } from "./types"
 
@@ -63,6 +67,19 @@ function extractDeadLetterQueueLinks(
   }
 
   return links
+}
+
+function isLambdaFunctionNode(node: FlowNode): node is FlowNode & { type: "lambda-function" } {
+  return node.type === "lambda-function" || node.data?.componentKey === "aws-lambda"
+}
+
+function extractLambdaFunctions(nodes: FlowNode[]): DiagramLambdaFunction[] {
+  return nodes
+    .filter(isLambdaFunctionNode)
+    .map((node) => ({
+      nodeId: node.id,
+      ...getLambdaFunctionConfig(node.data as LambdaFunctionConfigInput),
+    }))
 }
 
 function extractSnsTopics(nodes: FlowNode[]): DiagramSnsTopic[] {
@@ -135,6 +152,70 @@ function extractSnsSqsSubscriptions(
   return subscriptions
 }
 
+function extractSnsLambdaSubscriptions(
+  nodes: FlowNode[],
+  edges: ArchitectureEdgeType[],
+): DiagramSnsLambdaSubscription[] {
+  const subscriptions: DiagramSnsLambdaSubscription[] = []
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
+
+  for (const edge of edges) {
+    if (edge.sourceHandle === DLQ_SOURCE_HANDLE) {
+      continue
+    }
+
+    const sourceNode = nodeById.get(edge.source)
+    const targetNode = nodeById.get(edge.target)
+
+    if (!sourceNode || !targetNode) {
+      continue
+    }
+
+    if (!isSnsTopicNode(sourceNode) || !isLambdaFunctionNode(targetNode)) {
+      continue
+    }
+
+    subscriptions.push({
+      topicNodeId: sourceNode.id,
+      lambdaNodeId: targetNode.id,
+    })
+  }
+
+  return subscriptions
+}
+
+function extractSqsLambdaEventSources(
+  nodes: FlowNode[],
+  edges: ArchitectureEdgeType[],
+): DiagramSqsLambdaEventSource[] {
+  const eventSources: DiagramSqsLambdaEventSource[] = []
+  const nodeById = new Map(nodes.map((node) => [node.id, node]))
+
+  for (const edge of edges) {
+    if (edge.sourceHandle === DLQ_SOURCE_HANDLE) {
+      continue
+    }
+
+    const sourceNode = nodeById.get(edge.source)
+    const targetNode = nodeById.get(edge.target)
+
+    if (!sourceNode || !targetNode) {
+      continue
+    }
+
+    if (!isSqsQueueNode(sourceNode) || !isLambdaFunctionNode(targetNode)) {
+      continue
+    }
+
+    eventSources.push({
+      queueNodeId: sourceNode.id,
+      lambdaNodeId: targetNode.id,
+    })
+  }
+
+  return eventSources
+}
+
 export function extractDiagramResources(
   nodes: FlowNode[],
   edges: ArchitectureEdgeType[] = [],
@@ -143,8 +224,11 @@ export function extractDiagramResources(
 
   return {
     snsTopics: extractSnsTopics(nodes),
+    lambdaFunctions: extractLambdaFunctions(nodes),
     sqsQueues: extractSqsQueues(nodes, deadLetterQueueLinks),
     sqsDlqs: extractSqsDlqs(nodes),
     snsSqsSubscriptions: extractSnsSqsSubscriptions(nodes, edges),
+    snsLambdaSubscriptions: extractSnsLambdaSubscriptions(nodes, edges),
+    sqsLambdaEventSources: extractSqsLambdaEventSources(nodes, edges),
   }
 }

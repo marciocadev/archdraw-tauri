@@ -1,4 +1,11 @@
 import type { Node } from "@xyflow/react"
+import type {
+  LambdaArchitecture,
+  LambdaEnvironmentVariable,
+  LambdaLanguage,
+  LambdaRuntime,
+  LambdaTimeoutUnit,
+} from "../../utils/lambdaFunctionTypes"
 import type { SnsTopicType } from "../../utils/snsTopicTypes"
 import type { VisibilityTimeoutUnit, DeliveryDelayUnit, MessageRetentionUnit } from "../../utils/sqsQueueTypes"
 
@@ -14,6 +21,14 @@ export interface AwsComponentNodeData extends Record<string, unknown> {
   topicName?: string;
   topicType?: SnsTopicType;
   functionName?: string;
+  runtime?: LambdaRuntime;
+  architecture?: LambdaArchitecture;
+  language?: LambdaLanguage;
+  memoryMb?: number;
+  ephemeralStorageMb?: number;
+  timeoutValue?: number;
+  timeoutUnit?: LambdaTimeoutUnit;
+  environmentVariables?: LambdaEnvironmentVariable[];
   queueName?: string;
   visibilityTimeoutValue?: number;
   visibilityTimeoutUnit?: VisibilityTimeoutUnit;
