@@ -67,6 +67,7 @@ import { SQSQueueNode } from "./nodes/aws/SQSQueueNode";
 import { SQSDeadLetterQueueNode } from "./nodes/aws/SQSDeadLetterQueueNode";
 import { saveDiagramFromCanvas } from "../services/saveDiagramFile";
 import { openDiagramFromFile } from "../services/openDiagramFile";
+import { getInitialDiagramState, saveDiagramSession } from "../services/diagramSession";
 
 const nodeTypes = {
   "lambda-function": LambdaFunctionNode,
@@ -104,11 +105,13 @@ export interface MainContentProps {
 export interface DiagramCanvasHandle {
   saveDiagram: () => Promise<boolean>
   openDiagram: () => Promise<boolean>
+  getNodes: () => FlowNode[]
 }
 
 const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props, ref) => {
-  const [nodes, setNodes] = useNodesState<FlowNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<ArchitectureEdgeType>([]);
+  const initialDiagram = useMemo(() => getInitialDiagramState(), [])
+  const [nodes, setNodes] = useNodesState<FlowNode>(initialDiagram.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<ArchitectureEdgeType>(initialDiagram.edges);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [configuringNodeId, setConfiguringNodeId] = useState<string | null>(null);
   const edgeSnapshotRef = useRef<{ id: string; data: ArchitectureEdgeData } | null>(null);
@@ -128,6 +131,10 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
     edgesRef.current = edges
   }, [edges])
 
+  useEffect(() => {
+    saveDiagramSession(nodes, edges)
+  }, [nodes, edges])
+
   useImperativeHandle(ref, () => ({
     saveDiagram: async () => {
       return saveDiagramFromCanvas(nodesRef.current, edgesRef.current)
@@ -146,6 +153,7 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
       setEdges(document.edges.map((edge) => ({ ...edge, selected: false })))
       return true
     },
+    getNodes: () => nodesRef.current,
   }), [setEdges, setNodes])
 
   const selectedEdge = useMemo(

@@ -1,6 +1,8 @@
-import { useState } from "react";
 import { HideHorizontalLeftBarSvg } from "./svg/SpliHorizontalLeftBarSvg";
 import { ThemeModeSvg } from "./svg/ThemeModeSvg"
+import { CodeMenu } from "./CodeMenu"
+import { FileMenu } from "./FileMenu"
+import type { CodeGeneratorType } from "../codegen/types"
 
 export interface HeaderProps {
   onThemeToggle: () => void;
@@ -9,23 +11,19 @@ export interface HeaderProps {
   horizontalLeftBar: boolean;
   onOpen: () => void
   onSave: () => void
+  onGenerateCode: (generatorType: CodeGeneratorType) => void
 }
 
 export const Header = (props: HeaderProps) => {
-  const { onThemeToggle, colorMode, onHorizontalLeftBarToggle, horizontalLeftBar, onOpen, onSave } = props
-
-  const [isFileMenuOpen, setIsFileMenuOpen] = useState(false)
-
-
-  const handleOpen = () => {
-    setIsFileMenuOpen(false)
-    onOpen()
-  }
-
-  const handleSave = () => {
-    setIsFileMenuOpen(false)
-    onSave()
-  }
+  const {
+    onThemeToggle,
+    colorMode,
+    onHorizontalLeftBarToggle,
+    horizontalLeftBar,
+    onOpen,
+    onSave,
+    onGenerateCode,
+  } = props
 
   return (
     <>
@@ -41,38 +39,9 @@ export const Header = (props: HeaderProps) => {
               draggable={false}
             />
 
-            <div className="relative">
-              <button
-                type="button"
-                className="px-2 py-1 text-sm hover:bg-slate-300/70 dark:hover:bg-slate-700"
-                onClick={() => setIsFileMenuOpen((open) => !open)}
-              >
-                File
-              </button>
-
-              {isFileMenuOpen && (
-                <div
-                  className="absolute top-full left-0 z-50 min-w-32 border border-slate-300 bg-white py-1 shadow-lg
-                dark:border-slate-600 dark:bg-slate-800"
-                >
-                  <button
-                    type="button"
-                    className="block w-full px-4 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                    onClick={handleSave}
-                  >
-                    Save
-                  </button>
-                  <button
-                    type="button"
-                    className="block w-full px-4 py-1.5 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-700"
-                    onClick={handleOpen}
-                  >
-                    Open
-                  </button>
-                </div>
-
-
-              )}
+            <div className="flex items-center gap-1">
+              <FileMenu onSave={onSave} onOpen={onOpen} />
+              <CodeMenu onGenerate={onGenerateCode} />
             </div>
           </div>
         </div>

@@ -70,7 +70,7 @@ export const ConnectionConfigPanel = (props: ConnectionConfigPanelProps) => {
               id="connection-path-type"
               value={draft.pathType}
               onChange={handlePathTypeChange}
-              className="rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-700 outline-none focus:ring-2 focus:ring-blue-700 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200">
+              className="form-select rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-blue-700 dark:border-slate-500 dark:bg-slate-800 dark:text-slate-100">
               {CONNECTION_PATH_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
