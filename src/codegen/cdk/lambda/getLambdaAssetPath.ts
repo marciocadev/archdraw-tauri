@@ -12,6 +12,10 @@ export function getLambdaFunctionLibRelativePath(functionName: string, fallback:
   return `lib/functions/${getLambdaFunctionFolderName(functionName, fallback)}`
 }
 
+export function getLambdaFunctionTerraformRelativePath(functionName: string, fallback: string): string {
+  return `functions/${getLambdaFunctionFolderName(functionName, fallback)}`
+}
+
 /** @deprecated Use getLambdaFunctionLibRelativePath */
 export function getLambdaAssetPath(functionName: string, fallback: string): string {
   return getLambdaFunctionLibRelativePath(functionName, fallback)
