@@ -5,6 +5,7 @@ import { awsComponentsByKey } from "../../utils/awsComponents"
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react"
 import { getDlqHandlePoint, getHandleSideFromPoint, getHandleStyle, getSourceHandlePoint, getTargetHandlePoint, runHandleProgressAnimation } from "../../utils/targetHandlePosition"
 import { MenuNode } from "../MenuNode"
+import { useComponentConfig } from "../../../contexts/ComponentConfigContext"
 
 export type { SQSQueueNodeType } from "./awsComponentNodeTypes"
 
@@ -48,6 +49,7 @@ function getDlqHandlePosition(
 }
 
 export const SQSQueueNode = ({ id, data, selected }: NodeProps<SQSQueueNodeType>) => {
+  const { openConfig } = useComponentConfig()
   const { getNode, getInternalNode, setNodes, setEdges } = useReactFlow<FlowNode>()
   const updateNodeInternals = useUpdateNodeInternals()
   const component = awsComponentsByKey[COMPONENT_KEY]
@@ -291,6 +293,11 @@ export const SQSQueueNode = ({ id, data, selected }: NodeProps<SQSQueueNodeType>
     )
   }
 
+  const handleSettings = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    openConfig(id)
+  }, [id, openConfig])
+
   return (
     <div className="relative overflow-visible">
       {selected && (
@@ -306,6 +313,7 @@ export const SQSQueueNode = ({ id, data, selected }: NodeProps<SQSQueueNodeType>
           isSourceAnimating={isSourceAnimating}
           sourceProgress={sourceProgress}
           isGrouped={isGrouped}
+          handleSettings={handleSettings}
         />
       )}
 
@@ -333,7 +341,7 @@ export const SQSQueueNode = ({ id, data, selected }: NodeProps<SQSQueueNodeType>
               {component.type}
             </div>
             <div className="text-xl font-[AmazonEmberHeavy] dark:text-gray-200 text-gray-700">
-              {component.component}
+              {data.queueName || component.component}
             </div>
           </div>
           <div className="flex flex-col items-end justify-start p-2">

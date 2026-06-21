@@ -96,8 +96,6 @@ export const awsComponentsByKey = Object.fromEntries(
   awsComponents.map((component) => [component.key, component]),
 ) as Record<string, ComponentType>
 
-export const DND_MIME_TYPE = "application/x-architecture-component";
-
 export function getNodeTypeForComponentKey(
   componentKey: string,
 ): AwsComponentNodeTypeName | undefined {

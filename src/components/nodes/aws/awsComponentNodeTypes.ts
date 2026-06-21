@@ -1,4 +1,13 @@
 import type { Node } from "@xyflow/react"
+import type {
+  LambdaArchitecture,
+  LambdaEnvironmentVariable,
+  LambdaLanguage,
+  LambdaRuntime,
+  LambdaTimeoutUnit,
+} from "../../utils/lambdaFunctionTypes"
+import type { SnsTopicType } from "../../utils/snsTopicTypes"
+import type { VisibilityTimeoutUnit, DeliveryDelayUnit, MessageRetentionUnit } from "../../utils/sqsQueueTypes"
 
 export const AWS_COMPONENT_NODE_TYPES = ["lambda-function", "sns-topic", "sqs-queue", "sqs-dlq"] as const
 
@@ -9,6 +18,27 @@ export interface AwsComponentNodeData extends Record<string, unknown> {
   targetHandleAtTop?: boolean;
   sourceHandleAtBottom?: boolean;
   dlqHandleAtRight?: boolean;
+  topicName?: string;
+  topicType?: SnsTopicType;
+  functionName?: string;
+  runtime?: LambdaRuntime;
+  architecture?: LambdaArchitecture;
+  language?: LambdaLanguage;
+  memoryMb?: number;
+  ephemeralStorageMb?: number;
+  timeoutValue?: number;
+  timeoutUnit?: LambdaTimeoutUnit;
+  environmentVariables?: LambdaEnvironmentVariable[];
+  queueName?: string;
+  visibilityTimeoutValue?: number;
+  visibilityTimeoutUnit?: VisibilityTimeoutUnit;
+  deliveryDelayValue?: number;
+  deliveryDelayUnit?: DeliveryDelayUnit;
+  receiveMessageWaitTime?: number;
+  messageRetentionValue?: number;
+  messageRetentionUnit?: MessageRetentionUnit;
+  maximumMessageSizeKib?: number;
+  dlqName?: string;
 }
 
 export type LambdaFunctionNodeType = Node<AwsComponentNodeData, "lambda-function">

@@ -1,4 +1,12 @@
 {
+  "app": {
+    "windows": [
+      {
+        "decorations": false,
+        "dragDropEnabled": false
+      }
+    ]
+  },
   "bundle": {
     "targets": ["msi", "nsis"]
   }

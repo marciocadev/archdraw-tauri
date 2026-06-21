@@ -22,6 +22,7 @@ import {
   runHandleProgressAnimation,
 } from "../../utils/targetHandlePosition"
 import { MenuNode } from "../MenuNode"
+import { useComponentConfig } from "../../../contexts/ComponentConfigContext"
 import {
   type AwsComponentNodeData,
   type AwsComponentNodeTypeName,
@@ -42,6 +43,7 @@ export interface AwsComponentNodeBaseProps {
   selected: boolean;
   nodeType: AwsComponentNodeTypeName;
   componentKey: string;
+  componentLabel?: string;
 }
 
 export const AwsComponentNodeBase = ({
@@ -50,7 +52,9 @@ export const AwsComponentNodeBase = ({
   selected,
   nodeType,
   componentKey,
+  componentLabel,
 }: AwsComponentNodeBaseProps) => {
+  const { openConfig } = useComponentConfig()
   const { getNode, getInternalNode, setNodes, setEdges } = useReactFlow<FlowNode>()
   const updateNodeInternals = useUpdateNodeInternals()
   const component = awsComponentsByKey[componentKey]
@@ -219,6 +223,11 @@ export const AwsComponentNodeBase = ({
     )
   }
 
+  const handleSettings = useCallback((event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation()
+    openConfig(id)
+  }, [id, openConfig])
+
   return (
     <div className="relative">
       {selected && (
@@ -234,6 +243,7 @@ export const AwsComponentNodeBase = ({
           isSourceAnimating={isSourceAnimating}
           sourceProgress={sourceProgress}
           isGrouped={isGrouped}
+          handleSettings={handleSettings}
         />
       )}
 
@@ -260,7 +270,7 @@ export const AwsComponentNodeBase = ({
             {component.type}
           </div>
           <div className="text-xl font-[AmazonEmberHeavy] dark:text-gray-200 text-gray-700">
-            {component.component}
+            {componentLabel ?? component.component}
           </div>
         </div>
         <div className="flex flex-col items-end justify-start p-2">

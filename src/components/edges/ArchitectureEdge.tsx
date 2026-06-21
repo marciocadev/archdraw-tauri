@@ -13,16 +13,25 @@ import { getComponentBorderColor } from "../utils/awsComponents"
 import { useDocumentColorMode } from "../utils/colorMode"
 import type { FlowNode } from "../utils/groupNode"
 import { isAwsComponentNode } from "../nodes/aws/awsComponentNodeTypes"
+import type { MessageBodyFilter } from "../utils/messageBodyFilterTypes"
 import {
   DEFAULT_CONNECTION_PATH_TYPE,
   type ConnectionPathType,
 } from "../utils/connectionTypes"
+import { getMaxReceiveCount } from "../utils/dlqConnectionTypes"
+import { isSnsToSqsConnection } from "../utils/connectionMetadata"
+import { formatRawMessageDeliveryBadge } from "../utils/snsSqsConnectionTypes"
 import { getClosestPositionOnPath, getPointOnEdgePath } from "../utils/edgePath"
+
+const DLQ_SOURCE_HANDLE = "dlq"
 
 export interface ArchitectureEdgeData extends Record<string, unknown> {
   label?: string;
   labelPosition?: number;
   pathType?: ConnectionPathType;
+  maxReceiveCount?: number;
+  rawMessageDelivery?: boolean;
+  messageBodyFilters?: MessageBodyFilter[];
 }
 
 export type ArchitectureEdgeType = Edge<ArchitectureEdgeData, "architecture">
@@ -83,9 +92,10 @@ export const ArchitectureEdge = ({
   style,
   interactionWidth,
 }: EdgeProps<ArchitectureEdgeType>) => {
-  const { getNode, screenToFlowPosition, setEdges } = useReactFlow<FlowNode>()
+  const { getNode, getEdge, screenToFlowPosition, setEdges } = useReactFlow<FlowNode>()
   const colorMode = useDocumentColorMode()
   const isDraggingLabelRef = useRef(false)
+  const sourceHandle = getEdge(id)?.sourceHandle
 
   const pathParams = useMemo(() => ({
     sourceX,
@@ -109,9 +119,20 @@ export const ArchitectureEdge = ({
   const gradientId = getGradientId(id)
 
   const label = data?.label ?? ""
-  const showLabel = label.trim().length > 0
+  const isDlqConnection = sourceHandle === DLQ_SOURCE_HANDLE
+  const nodesForConnectionCheck = [sourceNode, targetNode].filter((node): node is FlowNode => node !== undefined)
+  const isSnsSqsConnection = isSnsToSqsConnection(
+    { source, target, sourceHandle: sourceHandle ?? null },
+    nodesForConnectionCheck,
+  )
+  const maxReceiveCount = getMaxReceiveCount(data?.maxReceiveCount)
+  const hasLabelText = label.trim().length > 0
+  const hasConnectionMetadata = isDlqConnection || isSnsSqsConnection
+  const showEdgeLabel = hasLabelText || hasConnectionMetadata
   const labelPosition = data?.labelPosition ?? DEFAULT_LABEL_POSITION
   const labelPoint = getPointOnEdgePath(edgePath, labelPosition)
+  const mutedSuffixClass = "text-slate-400 dark:text-slate-500"
+  const metadataPrefix = hasLabelText ? "\n" : ""
 
   const updateLabelPosition = useCallback((nextPosition: number) => {
     setEdges((edges) =>
@@ -182,7 +203,7 @@ export const ArchitectureEdge = ({
         }}
         interactionWidth={interactionWidth}
         className={selected ? "react-flow__edge-selected" : undefined} />
-      {showLabel && (
+      {showEdgeLabel && (
         <EdgeLabelRenderer>
           <div
             className="nodrag nopan pointer-events-auto absolute max-w-48 cursor-grab whitespace-pre-wrap
@@ -194,7 +215,19 @@ export const ArchitectureEdge = ({
             onPointerDown={handleLabelPointerDown}
             onPointerMove={handleLabelPointerMove}
             onPointerUp={handleLabelPointerUp}>
-            {label}
+            {hasLabelText && <span>{label}</span>}
+            {isDlqConnection && (
+              <span className={mutedSuffixClass}>
+                {metadataPrefix}
+                [maximum receives {maxReceiveCount}]
+              </span>
+            )}
+            {isSnsSqsConnection && (
+              <span className={mutedSuffixClass}>
+                {metadataPrefix}
+                {formatRawMessageDeliveryBadge(data?.rawMessageDelivery)}
+              </span>
+            )}
           </div>
         </EdgeLabelRenderer>
       )}

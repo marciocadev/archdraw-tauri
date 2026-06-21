@@ -14,5 +14,6 @@ export const SQSDeadLetterQueueNode = ({ id, data, selected }: NodeProps<SQSDead
     selected={selected}
     nodeType={NODE_TYPE}
     componentKey={COMPONENT_KEY}
+    componentLabel={data.dlqName || undefined}
   />
 )

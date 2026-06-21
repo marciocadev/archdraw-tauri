@@ -1,4 +1,14 @@
 import {
+  forwardRef,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
+import {
   addEdge,
   applyNodeChanges,
   Background,
@@ -14,19 +24,47 @@ import {
   type NodeChange,
   type OnNodeDrag,
 } from "@xyflow/react"
-import { useCallback, useMemo, useRef, useState, type DragEvent, type MouseEvent } from "react";
 import { ConnectionConfigPanel } from "./ConnectionConfigPanel";
+import { ComponentConfigPanels } from "./ComponentConfigPanels";
+import { ComponentConfigProvider } from "../contexts/ComponentConfigContext";
 import { ArchitectureEdge, type ArchitectureEdgeData, type ArchitectureEdgeType } from "./edges/ArchitectureEdge";
 import { LambdaFunctionNode } from "./nodes/aws/LambdaFunctionNode";
 import { SNSTopicNode } from "./nodes/aws/SNSTopicNode";
-import type { AwsComponentNodeType } from "./nodes/aws/awsComponentNodeTypes";
+import type { AwsComponentNodeData, AwsComponentNodeType } from "./nodes/aws/awsComponentNodeTypes";
+import { isAwsComponentNode } from "./nodes/aws/awsComponentNodeTypes";
 import { GroupNode } from "./nodes/GroupNode";
-import { awsComponentsByKey, DND_MIME_TYPE, getNodeTypeForComponentKey } from "./utils/awsComponents";
+import { awsComponentsByKey, getNodeTypeForComponentKey } from "./utils/awsComponents";
+import { subscribeSidebarPointerDrop } from "./utils/sidebarPointerDrag";
 import { isValidArchitectureConnection } from "./utils/connectionRules";
 import {
   DEFAULT_CONNECTION_PATH_TYPE,
   type ConnectionDraft,
-} from "./utils/connectionTypes";
+} from "./utils/connectionTypes"
+import {
+  DEFAULT_MAX_RECEIVE_COUNT,
+  clampMaxReceiveCount,
+  getMaxReceiveCount,
+} from "./utils/dlqConnectionTypes"
+import { isSnsToSqsConnection, isSnsToSqsConnectionEdge } from "./utils/connectionMetadata"
+import {
+  DEFAULT_RAW_MESSAGE_DELIVERY,
+  getRawMessageDelivery,
+} from "./utils/snsSqsConnectionTypes"
+import {
+  getMessageBodyFilters,
+} from "./utils/messageBodyFilterTypes";
+import {
+  type SnsTopicConfig,
+} from "./utils/snsTopicTypes";
+import {
+  type LambdaFunctionConfig,
+} from "./utils/lambdaFunctionTypes";
+import {
+  type SqsQueueConfig,
+} from "./utils/sqsQueueTypes";
+import {
+  type SqsDlqConfig,
+} from "./utils/sqsDlqTypes";
 import {
   ARCHITECTURE_Z_INDEX,
   attachNodeToGroup,
@@ -38,9 +76,11 @@ import {
   resolveGroupMembership,
   type FlowNode,
 } from "./utils/groupNode";
-import { isAwsComponentNode } from "./nodes/aws/awsComponentNodeTypes";
 import { SQSQueueNode } from "./nodes/aws/SQSQueueNode";
 import { SQSDeadLetterQueueNode } from "./nodes/aws/SQSDeadLetterQueueNode";
+import { saveDiagramFromCanvas } from "../services/saveDiagramFile";
+import { openDiagramFromFile } from "../services/openDiagramFile";
+import { getInitialDiagramState, saveDiagramSession } from "../services/diagramSession";
 
 const nodeTypes = {
   "lambda-function": LambdaFunctionNode,
@@ -64,25 +104,90 @@ function generateNodeId(): string {
   return `node_${crypto.randomUUID()}`;
 }
 
-function getConnectionDraft(edge: ArchitectureEdgeType | undefined): ConnectionDraft {
-  return {
+function getConnectionDraft(
+  edge: ArchitectureEdgeType | undefined,
+  nodes: FlowNode[],
+): ConnectionDraft {
+  const draft: ConnectionDraft = {
     label: edge?.data?.label ?? "",
     pathType: edge?.data?.pathType ?? DEFAULT_CONNECTION_PATH_TYPE,
   }
+
+  if (edge?.sourceHandle === "dlq") {
+    draft.maxReceiveCount = getMaxReceiveCount(edge.data?.maxReceiveCount)
+  }
+
+  if (edge && isSnsToSqsConnectionEdge(edge, nodes)) {
+    draft.rawMessageDelivery = getRawMessageDelivery(edge.data?.rawMessageDelivery)
+    draft.messageBodyFilters = getMessageBodyFilters(edge.data?.messageBodyFilters)
+  }
+
+  return draft
+}
+
+function isDlqConnectionEdge(edge: ArchitectureEdgeType | undefined): boolean {
+  return edge?.sourceHandle === "dlq"
 }
 
 export interface MainContentProps {
   colorMode: ColorMode
 }
 
-const MainContentFlow = (props: MainContentProps) => {
-  const [nodes, setNodes] = useNodesState<FlowNode>([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState<ArchitectureEdgeType>([]);
+export interface DiagramCanvasHandle {
+  saveDiagram: () => Promise<boolean>
+  openDiagram: () => Promise<boolean>
+  getNodes: () => FlowNode[]
+  getEdges: () => ArchitectureEdgeType[]
+}
+
+const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props, ref) => {
+  const initialDiagram = useMemo(() => getInitialDiagramState(), [])
+  const [nodes, setNodes] = useNodesState<FlowNode>(initialDiagram.nodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState<ArchitectureEdgeType>(initialDiagram.edges);
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [configuringNodeId, setConfiguringNodeId] = useState<string | null>(null);
   const edgeSnapshotRef = useRef<{ id: string; data: ArchitectureEdgeData } | null>(null);
+  const componentConfigSnapshotRef = useRef<{ nodeId: string; data: AwsComponentNodeData } | null>(null);
   const { screenToFlowPosition, getInternalNode, getIntersectingNodes } = useReactFlow<FlowNode>();
 
   const { colorMode } = props
+
+  const nodesRef = useRef(nodes)
+  const edgesRef = useRef(edges)
+
+  useEffect(() => {
+    nodesRef.current = nodes
+  }, [nodes])
+
+  useEffect(() => {
+    edgesRef.current = edges
+  }, [edges])
+
+  useEffect(() => {
+    saveDiagramSession(nodes, edges)
+  }, [nodes, edges])
+
+  useImperativeHandle(ref, () => ({
+    saveDiagram: async () => {
+      return saveDiagramFromCanvas(nodesRef.current, edgesRef.current)
+    },
+    openDiagram: async () => {
+      const document = await openDiagramFromFile()
+      if (!document) {
+        return false
+      }
+
+      setSelectedEdgeId(null)
+      edgeSnapshotRef.current = null
+      setConfiguringNodeId(null)
+      componentConfigSnapshotRef.current = null
+      setNodes(normalizeNodes(document.nodes))
+      setEdges(document.edges.map((edge) => ({ ...edge, selected: false })))
+      return true
+    },
+    getNodes: () => nodesRef.current,
+    getEdges: () => edgesRef.current,
+  }), [setEdges, setNodes])
 
   const selectedEdge = useMemo(
     () => edges.find((edge) => edge.id === selectedEdgeId),
@@ -90,9 +195,26 @@ const MainContentFlow = (props: MainContentProps) => {
   )
 
   const connectionDraft = useMemo(
-    () => getConnectionDraft(selectedEdge),
+    () => getConnectionDraft(selectedEdge, nodes),
+    [selectedEdge, nodes],
+  )
+
+  const isSelectedEdgeDlqConnection = useMemo(
+    () => isDlqConnectionEdge(selectedEdge),
     [selectedEdge],
   )
+
+  const isSelectedEdgeSnsSqsConnection = useMemo(
+    () => isSnsToSqsConnectionEdge(selectedEdge, nodes),
+    [selectedEdge, nodes],
+  )
+
+  const configuringNode = useMemo(() => {
+    const node = nodes.find((currentNode) => currentNode.id === configuringNodeId)
+    return node && isAwsComponentNode(node) ? node : undefined
+  }, [configuringNodeId, nodes])
+
+  const isComponentConfigOpen = configuringNodeId !== null
 
   const isValidConnection = useCallback<IsValidConnection<ArchitectureEdgeType>>(
     (connection) => {
@@ -130,6 +252,15 @@ const MainContentFlow = (props: MainContentProps) => {
           label: "",
           labelPosition: 0.5,
           pathType: DEFAULT_CONNECTION_PATH_TYPE,
+          ...(connection.sourceHandle === "dlq"
+            ? { maxReceiveCount: DEFAULT_MAX_RECEIVE_COUNT }
+            : {}),
+          ...(isSnsToSqsConnection(connection, nodes)
+            ? {
+              rawMessageDelivery: DEFAULT_RAW_MESSAGE_DELIVERY,
+              messageBodyFilters: [],
+            }
+            : {}),
         },
       }, currentEdges))
     },
@@ -147,13 +278,62 @@ const MainContentFlow = (props: MainContentProps) => {
     )
   }, [setEdges])
 
+  const clearComponentConfig = useCallback(() => {
+    setConfiguringNodeId(null)
+    componentConfigSnapshotRef.current = null
+  }, [])
+
+  const handleCancelComponentConfig = useCallback(() => {
+    const snapshot = componentConfigSnapshotRef.current
+    if (snapshot) {
+      setNodes((currentNodes) =>
+        currentNodes.map((node) =>
+          node.id === snapshot.nodeId && isAwsComponentNode(node)
+            ? {
+              ...node,
+              data: { ...snapshot.data },
+            }
+            : node,
+        ),
+      )
+    }
+
+    clearComponentConfig()
+  }, [clearComponentConfig, setNodes])
+
+  const openComponentConfig = useCallback((nodeId: string) => {
+    const node = nodesRef.current.find((currentNode) => currentNode.id === nodeId)
+    if (!node || !isAwsComponentNode(node)) {
+      return
+    }
+
+    componentConfigSnapshotRef.current = {
+      nodeId,
+      data: { ...node.data },
+    }
+    setConfiguringNodeId(nodeId)
+  }, [])
+
   const onEdgeClick = useCallback((_event: MouseEvent, edge: ArchitectureEdgeType) => {
+    if (configuringNodeId) {
+      handleCancelComponentConfig()
+    }
+
     edgeSnapshotRef.current = {
       id: edge.id,
       data: {
         label: edge.data?.label ?? "",
         labelPosition: edge.data?.labelPosition ?? 0.5,
         pathType: edge.data?.pathType ?? DEFAULT_CONNECTION_PATH_TYPE,
+        ...(edge.sourceHandle === "dlq"
+          ? { maxReceiveCount: getMaxReceiveCount(edge.data?.maxReceiveCount) }
+          : {}),
+        ...(isSnsToSqsConnectionEdge(edge, nodesRef.current)
+          ? {
+            rawMessageDelivery: getRawMessageDelivery(edge.data?.rawMessageDelivery),
+            messageBodyFilters: getMessageBodyFilters(edge.data?.messageBodyFilters),
+          }
+          : {}),
       },
     }
     setSelectedEdgeId(edge.id)
@@ -163,7 +343,7 @@ const MainContentFlow = (props: MainContentProps) => {
         selected: currentEdge.id === edge.id,
       })),
     )
-  }, [setEdges])
+  }, [configuringNodeId, handleCancelComponentConfig, setEdges])
 
   const handleCancelConnectionPanel = useCallback(() => {
     const snapshot = edgeSnapshotRef.current
@@ -186,6 +366,79 @@ const MainContentFlow = (props: MainContentProps) => {
     clearEdgeSelection()
   }, [clearEdgeSelection, setEdges])
 
+  const updateConfiguringNodeData = useCallback((
+    updates: Partial<AwsComponentNodeData>,
+  ) => {
+    if (!configuringNodeId) {
+      return
+    }
+
+    setNodes((currentNodes) =>
+      currentNodes.map((node) =>
+        node.id === configuringNodeId && isAwsComponentNode(node)
+          ? {
+            ...node,
+            data: {
+              ...node.data,
+              ...updates,
+            },
+          }
+          : node,
+      ),
+    )
+
+    clearComponentConfig()
+  }, [clearComponentConfig, configuringNodeId, setNodes])
+
+  const handleConfirmLambdaConfig = useCallback((config: LambdaFunctionConfig) => {
+    updateConfiguringNodeData({
+      functionName: config.functionName,
+      runtime: config.runtime,
+      architecture: config.architecture,
+      language: config.language,
+      memoryMb: config.memoryMb,
+      ephemeralStorageMb: config.ephemeralStorageMb,
+      timeoutValue: config.timeoutValue,
+      timeoutUnit: config.timeoutUnit,
+      environmentVariables: config.environmentVariables,
+    })
+  }, [updateConfiguringNodeData])
+
+  const handleConfirmSnsConfig = useCallback((config: SnsTopicConfig) => {
+    updateConfiguringNodeData({
+      topicName: config.topicName,
+      topicType: config.topicType,
+    })
+  }, [updateConfiguringNodeData])
+
+  const handleConfirmSqsQueueConfig = useCallback((config: SqsQueueConfig) => {
+    updateConfiguringNodeData({
+      queueName: config.queueName,
+      visibilityTimeoutValue: config.visibilityTimeoutValue,
+      visibilityTimeoutUnit: config.visibilityTimeoutUnit,
+      deliveryDelayValue: config.deliveryDelayValue,
+      deliveryDelayUnit: config.deliveryDelayUnit,
+      receiveMessageWaitTime: config.receiveMessageWaitTime,
+      messageRetentionValue: config.messageRetentionValue,
+      messageRetentionUnit: config.messageRetentionUnit,
+      maximumMessageSizeKib: config.maximumMessageSizeKib,
+    })
+  }, [updateConfiguringNodeData])
+
+  const handleConfirmSqsDlqConfig = useCallback((config: SqsDlqConfig) => {
+    updateConfiguringNodeData({
+      dlqName: config.dlqName,
+      visibilityTimeoutValue: config.visibilityTimeoutValue,
+      visibilityTimeoutUnit: config.visibilityTimeoutUnit,
+      deliveryDelayValue: config.deliveryDelayValue,
+      deliveryDelayUnit: config.deliveryDelayUnit,
+      receiveMessageWaitTime: config.receiveMessageWaitTime,
+      messageRetentionValue: config.messageRetentionValue,
+      messageRetentionUnit: config.messageRetentionUnit,
+      maximumMessageSizeKib: config.maximumMessageSizeKib,
+    })
+  }, [updateConfiguringNodeData])
+
   const handleConfirmConnectionPanel = useCallback((draft: ConnectionDraft) => {
     if (!selectedEdgeId) {
       return
@@ -200,6 +453,15 @@ const MainContentFlow = (props: MainContentProps) => {
               ...edge.data,
               label: draft.label,
               pathType: draft.pathType,
+              ...(edge.sourceHandle === "dlq"
+                ? { maxReceiveCount: clampMaxReceiveCount(draft.maxReceiveCount ?? DEFAULT_MAX_RECEIVE_COUNT) }
+                : {}),
+              ...(isSnsToSqsConnectionEdge(edge, nodesRef.current)
+                ? {
+                  rawMessageDelivery: getRawMessageDelivery(draft.rawMessageDelivery),
+                  messageBodyFilters: getMessageBodyFilters(draft.messageBodyFilters),
+                }
+                : {}),
             },
           }
           : edge,
@@ -258,17 +520,12 @@ const MainContentFlow = (props: MainContentProps) => {
     if (selectedEdgeId) {
       handleCancelConnectionPanel()
     }
-  }, [handleCancelConnectionPanel, selectedEdgeId])
+    if (configuringNodeId) {
+      handleCancelComponentConfig()
+    }
+  }, [configuringNodeId, handleCancelComponentConfig, handleCancelConnectionPanel, selectedEdgeId])
 
-  const onDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-    event.dataTransfer.dropEffect = "move"
-  }, [])
-
-  const onDrop = useCallback((event: DragEvent<HTMLDivElement>) => {
-    event.preventDefault()
-
-    const componentKey = event.dataTransfer.getData(DND_MIME_TYPE)
+  const addComponentAtPosition = useCallback((componentKey: string, clientX: number, clientY: number) => {
     const component = awsComponentsByKey[componentKey]
 
     if (!component) {
@@ -276,8 +533,8 @@ const MainContentFlow = (props: MainContentProps) => {
     }
 
     const position = screenToFlowPosition({
-      x: event.clientX,
-      y: event.clientY,
+      x: clientX,
+      y: clientY,
     })
 
     const nodeType = getNodeTypeForComponentKey(componentKey)
@@ -320,18 +577,48 @@ const MainContentFlow = (props: MainContentProps) => {
     })
   }, [getInternalNode, screenToFlowPosition, setNodes])
 
+  useEffect(() => {
+    return subscribeSidebarPointerDrop(({ componentKey, clientX, clientY }) => {
+      addComponentAtPosition(componentKey, clientX, clientY)
+    })
+  }, [addComponentAtPosition])
+
+  const componentConfigContextValue = useMemo(
+    () => ({
+      openConfig: (nodeId: string) => {
+        if (selectedEdgeId) {
+          handleCancelConnectionPanel()
+        }
+        openComponentConfig(nodeId)
+      },
+    }),
+    [handleCancelConnectionPanel, openComponentConfig, selectedEdgeId],
+  )
+
   const flowProps = useMemo(() => ({ hideAttribution: true as const }), [])
 
   return (
-    <div className="relative h-full w-full dark:bg-slate-700 bg-slate-50">
-      <ConnectionConfigPanel
-        isOpen={selectedEdgeId !== null}
-        initialDraft={connectionDraft}
-        onConfirm={handleConfirmConnectionPanel}
-        onCancel={handleCancelConnectionPanel}
-        onDisconnect={handleDisconnectConnection}
-      />
-      <ReactFlow
+    <ComponentConfigProvider value={componentConfigContextValue}>
+      <div className="relative h-full w-full dark:bg-slate-700 bg-slate-50">
+        <ConnectionConfigPanel
+          isOpen={selectedEdgeId !== null}
+          isDlqConnection={isSelectedEdgeDlqConnection}
+          isSnsSqsConnection={isSelectedEdgeSnsSqsConnection}
+          initialDraft={connectionDraft}
+          onConfirm={handleConfirmConnectionPanel}
+          onCancel={handleCancelConnectionPanel}
+          onDisconnect={handleDisconnectConnection}
+        />
+        <ComponentConfigPanels
+          configuringNode={configuringNode}
+          isOpen={isComponentConfigOpen}
+          onCancel={handleCancelComponentConfig}
+          onConfirmLambda={handleConfirmLambdaConfig}
+          onConfirmSns={handleConfirmSnsConfig}
+          onConfirmSqsQueue={handleConfirmSqsQueueConfig}
+          onConfirmSqsDlq={handleConfirmSqsDlqConfig}
+        />
+        <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
@@ -344,19 +631,22 @@ const MainContentFlow = (props: MainContentProps) => {
         onPaneClick={onPaneClick}
         isValidConnection={isValidConnection}
         onNodeDragStop={onNodeDragStop}
-        onDragOver={onDragOver}
-        onDrop={onDrop}
         colorMode={colorMode}
         proOptions={flowProps}>
         <Background />
         <Controls />
       </ReactFlow>
-    </div>
+      </div>
+    </ComponentConfigProvider>
   )
-}
+})
 
-export const MainContent = (props: MainContentProps) => (
+MainContentFlow.displayName = "MainContentFlow"
+
+export const MainContent = forwardRef<DiagramCanvasHandle, MainContentProps>((props, ref) => (
   <ReactFlowProvider>
-    <MainContentFlow {...props} />
+    <MainContentFlow ref={ref} {...props} />
   </ReactFlowProvider>
-)
+))
+
+MainContent.displayName = "MainContent"

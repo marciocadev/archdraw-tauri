@@ -23,7 +23,21 @@ export default defineConfig({
         }
       : undefined,
     watch: {
-      ignored: ['**/src-tauri/**'],
+      ignored: [
+        '**/src-tauri/**',
+        '**/cdk.out/**',
+        '**/node_modules/**',
+        (path: string) => {
+          if (path.includes('/src/') || path.endsWith('/src')) {
+            return false
+          }
+
+          return /(^|[\\/])cdk\.json$/.test(path)
+            || /(^|[\\/])(main|sns|variables|outputs)\.tf$/.test(path)
+            || /(^|[\\/])lib[\\/][^\\/]+-stack\.ts$/.test(path)
+            || /(^|[\\/])bin[\\/][^\\/]+\.ts$/.test(path)
+        },
+      ],
     },
   },
   envPrefix: ['VITE_', 'TAURI_ENV_*'],

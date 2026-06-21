@@ -1,27 +1,32 @@
-import { useRef, type DragEvent, type ReactNode } from "react";
+import { type ReactNode } from "react"
+import { startSidebarPointerDrag } from "../utils/sidebarPointerDrag"
 
 export interface DiagramButtonProps {
-  diagramKey: string;
-  type: string;
-  component: string;
-  children: ReactNode;
-  onDragStart?: (event: DragEvent<HTMLButtonElement>, diagramKey: string) => void
+  diagramKey: string
+  type: string
+  component: string
+  children: ReactNode
   onClick?: () => void
 }
 
 export const DiagramButton = (props: DiagramButtonProps) => {
-  const buttonRef = useRef<HTMLButtonElement | null>(null)
-  const { type, component, children, diagramKey, onClick, onDragStart } = props;
+  const { type, component, children, diagramKey, onClick } = props
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) {
+      return
+    }
+
+    startSidebarPointerDrag(diagramKey, event.clientX, event.clientY)
+  }
 
   return (
     <button
       type="button"
-      draggable
-      ref={buttonRef}
       onClick={onClick}
-      onDragStart={(event) => onDragStart?.(event, diagramKey)}
-      className="flex w-full items-center justify-between gap-3 rounded-xl border p-2 text-left
-        bg-slate-50 text-slate-700
+      onPointerDown={handlePointerDown}
+      className="flex w-full cursor-grab items-center justify-between gap-3 rounded-xl border p-2 text-left
+        bg-slate-50 text-slate-700 active:cursor-grabbing
         dark:border-slate-500 dark:bg-mist-900 dark:text-slate-200
         border-slate-300"
     >

@@ -16,7 +16,8 @@
         "width": 1280,
         "height": 800,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "dragDropEnabled": false
       }
     ],
     "security": {
@@ -26,9 +27,9 @@
   "bundle": {
     "active": true,
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
+      "icons/icon-32x32.png",
+      "icons/icon-128x128.png",
+      "icons/icon-128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
     ],

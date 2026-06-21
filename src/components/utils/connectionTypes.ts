@@ -9,7 +9,12 @@ export const CONNECTION_PATH_OPTIONS: { value: ConnectionPathType; label: string
 
 export const DEFAULT_CONNECTION_PATH_TYPE: ConnectionPathType = "bezier"
 
+import type { MessageBodyFilter } from "./messageBodyFilterTypes"
+
 export interface ConnectionDraft {
   label: string;
   pathType: ConnectionPathType;
+  maxReceiveCount?: number;
+  rawMessageDelivery?: boolean;
+  messageBodyFilters?: MessageBodyFilter[];
 }

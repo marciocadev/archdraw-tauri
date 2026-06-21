@@ -2,12 +2,55 @@ name: release
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Tag da release. Deixe vazio para usar a tag git v* mais recente.'
+        required: false
+        default: ''
   push:
     tags:
       - 'v*'
 
 jobs:
+  resolve-version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Resolve release tag
+        id: resolve
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            TAG="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            INPUT="${{ inputs.version }}"
+            case "$INPUT" in
+              v*) TAG="$INPUT" ;;
+              *) TAG="v${INPUT}" ;;
+            esac
+          else
+            TAG=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+            if [ -z "$TAG" ]; then
+              echo "Nenhuma tag git v* encontrada. Crie e envie uma tag antes de executar o workflow."
+              exit 1
+            fi
+          fi
+
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Release tag
+        run: echo "Using tag ${{ steps.resolve.outputs.tag }} (app version ${{ steps.resolve.outputs.version }})"
+
   build:
+    needs: resolve-version
     permissions:
       contents: write
     strategy:
@@ -24,7 +67,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Sync app version from git tag
+        run: node .github/scripts/sync-app-version.mjs "${{ needs.resolve-version.outputs.tag }}"
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-24.04'
@@ -45,7 +91,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 24
+          check-latest: true
           cache: pnpm
 
       - name: Install Rust stable
@@ -62,19 +109,26 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build and release
+        id: tauri
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NO_STRIP: 'true'
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: ArchDraw ${{ github.ref_name }}
+          tagName: ${{ needs.resolve-version.outputs.tag }}
+          releaseName: ArchDraw ${{ needs.resolve-version.outputs.tag }}
           releaseBody: |
             Instaladores do ArchDraw para Windows, macOS e Linux.
 
             - **Windows**: `.msi` (recomendado) ou `.exe`
             - **macOS**: `.dmg` (universal — Apple Silicon + Intel)
             - **Linux**: `.deb` (Debian/Ubuntu), `.rpm` (Fedora/RHEL), `.AppImage` (portátil)
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
+          uploadWorkflowArtifacts: true
           args: ${{ matrix.args }}
+
+      - name: Resumo do build
+        run: |
+          echo "Release: ${{ steps.tauri.outputs.releaseHtmlUrl }}"
+          echo "Artefatos: ${{ steps.tauri.outputs.artifactPaths }}"

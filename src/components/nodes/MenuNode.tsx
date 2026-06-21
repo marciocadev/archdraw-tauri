@@ -12,6 +12,7 @@ export interface MenuNodeProps {
   handleGroupToggle: (event: MouseEvent<HTMLButtonElement>) => void
   isGrouped: boolean
   handleDelete: (event: MouseEvent<HTMLButtonElement>) => void
+  handleSettings: (event: MouseEvent<HTMLButtonElement>) => void
 }
 
 export const MenuNode = (props: MenuNodeProps) => {
@@ -26,7 +27,8 @@ export const MenuNode = (props: MenuNodeProps) => {
     handleSourceToggle,
     isSourceAnimating,
     sourceProgress,
-    isGrouped } = props
+    isGrouped,
+    handleSettings } = props
 
   return (
     <div className="nodrag nopan absolute right-0 bottom-full z-10 mb-2">
@@ -58,11 +60,15 @@ export const MenuNode = (props: MenuNodeProps) => {
             <span className="w-0.5 justify-start items-center flex bg-slate-500" />
           </>
         )}
-        <button type="button" className={`px-4 py-2 text-sm font-medium ${haveTarget ? "" : "rounded-l-full"}
-          hover:bg-gray-100 hover:dark:bg-slate-950 focus:z-10 focus:ring-2>
-          focus:ring-blue-700 focus:text-blue-700>
-          border-slate-900 disabled:opacity-60 border-l border-t border-b>
-          dark:text-gray-200 text-gray-700 bg-white dark:bg-slate-900`}>
+        <button
+          type="button"
+          className={`nodrag nopan px-4 py-2 text-sm font-medium ${haveTarget ? "" : "rounded-l-full"}
+          hover:bg-gray-100 hover:dark:bg-slate-950 focus:z-10 focus:ring-2
+          focus:ring-blue-700 focus:text-blue-700
+          border-slate-900 disabled:opacity-60 border-l border-t border-b
+          dark:text-gray-200 text-gray-700 bg-white dark:bg-slate-900`}
+          onClick={handleSettings}
+          aria-label="Settings">
           <svg
             viewBox="0 0 24 24"
             fill="none"
@@ -76,11 +82,13 @@ export const MenuNode = (props: MenuNodeProps) => {
           </svg>
         </button>
         <span className="w-0.5 justify-start items-center flex bg-slate-500" />
-        <button type="button" className="nodrag nopan px-4 py-2 text-sm font-medium
-          hover:bg-gray-100 hover:dark:bg-slate-950 focus:z-10 focus:ring-2>
-          focus:ring-blue-700 focus:text-blue-700>
-          border-slate-900 disabled:opacity-60 border-l border-t border-b>
-          dark:text-gray-200 text-gray-700 bg-white dark:bg-slate-900"
+        <button
+          type="button"
+          className={`nodrag nopan px-4 py-2 text-sm font-medium
+          hover:bg-gray-100 hover:dark:bg-slate-950 focus:z-10 focus:ring-2
+          focus:ring-blue-700 focus:text-blue-700
+          border-slate-900 disabled:opacity-60 border-l border-t border-b
+          dark:text-gray-200 text-gray-700 bg-white dark:bg-slate-900`}
           onClick={handleGroupToggle}>
           {isGrouped ?
             <svg
