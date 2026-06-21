@@ -16,9 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.resolve.outputs.tag }}
+      version: ${{ steps.resolve.outputs.version }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -26,30 +27,27 @@ jobs:
         id: resolve
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
-            echo "tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          INPUT="${{ inputs.version }}"
-          if [ -n "$INPUT" ]; then
+            TAG="${{ github.ref_name }}"
+          elif [ -n "${{ inputs.version }}" ]; then
+            INPUT="${{ inputs.version }}"
             case "$INPUT" in
               v*) TAG="$INPUT" ;;
               *) TAG="v${INPUT}" ;;
             esac
-            echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-            exit 0
+          else
+            TAG=$(git tag -l 'v*' --sort=-v:refname | head -n1)
+            if [ -z "$TAG" ]; then
+              echo "Nenhuma tag git v* encontrada. Crie e envie uma tag antes de executar o workflow."
+              exit 1
+            fi
           fi
 
-          LATEST=$(git tag -l 'v*' --sort=-v:refname | head -n1)
-          if [ -z "$LATEST" ]; then
-            echo "Nenhuma tag git v* encontrada. Crie e envie uma tag antes de executar o workflow."
-            exit 1
-          fi
-
-          echo "tag=${LATEST}" >> "$GITHUB_OUTPUT"
+          VERSION="${TAG#v}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Release tag
-        run: echo "Using tag ${{ steps.resolve.outputs.tag }}"
+        run: echo "Using tag ${{ steps.resolve.outputs.tag }} (app version ${{ steps.resolve.outputs.version }})"
 
   build:
     needs: resolve-version
@@ -69,7 +67,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Sync app version from git tag
+        run: node .github/scripts/sync-app-version.mjs "${{ needs.resolve-version.outputs.tag }}"
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-24.04'
@@ -90,7 +91,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: lts/*
+          node-version: 24
+          check-latest: true
           cache: pnpm
 
       - name: Install Rust stable
