@@ -4,6 +4,7 @@ import { generateAppObject } from "./generateAppObject"
 import { generateCdkJsonObject } from "./generateCdkJsonObject"
 import { GenerateGitIgnore } from "./generateGitIgnore"
 import { generateJestConfigObject } from "./generateJestConfigObject"
+import { generateLambdaAssetFiles } from "./lambda/generateLambdaAssetFiles"
 import { generatePackageJsonObject } from "./generatePackageJsonObject"
 import { generateReadMeObject } from "./generateReadMeObject"
 import { generateStackObject } from "./generateStackObject"
@@ -12,11 +13,12 @@ import { generateTsConfigObject } from "./generateTsConfigObject"
 export function generateCdkProject(stackName: string, resources: DiagramResources): ProjectFile[] {
   const stackClassName = toPascalCase(stackName, "ArchDrawStack")
   const stackFileName = stackName
+  const lambdaAssetFiles = generateLambdaAssetFiles(resources.lambdaFunctions)
 
   return [
     {
       relativePath: "README.md",
-      content: generateReadMeObject(stackName),
+      content: generateReadMeObject(stackName, resources),
     },
     {
       relativePath: "jest.config.js",
@@ -24,19 +26,19 @@ export function generateCdkProject(stackName: string, resources: DiagramResource
     },
     {
       relativePath: ".gitignore",
-      content: GenerateGitIgnore(),
+      content: GenerateGitIgnore(resources),
     },
     {
       relativePath: "package.json",
-      content: JSON.stringify(generatePackageJsonObject(stackFileName), null, 2,),
+      content: JSON.stringify(generatePackageJsonObject(stackFileName, resources), null, 2),
     },
     {
       relativePath: "cdk.json",
-      content: JSON.stringify(generateCdkJsonObject(stackFileName), null, 2,),
+      content: JSON.stringify(generateCdkJsonObject(stackFileName), null, 2),
     },
     {
       relativePath: "tsconfig.json",
-      content: JSON.stringify(generateTsConfigObject(), null, 2,),
+      content: JSON.stringify(generateTsConfigObject(), null, 2),
     },
     {
       relativePath: `bin/${stackFileName}.ts`,
@@ -46,5 +48,6 @@ export function generateCdkProject(stackName: string, resources: DiagramResource
       relativePath: `lib/${stackFileName}-stack.ts`,
       content: generateStackObject(stackClassName, resources),
     },
+    ...lambdaAssetFiles,
   ]
 }

@@ -391,7 +391,17 @@ const MainContentFlow = forwardRef<DiagramCanvasHandle, MainContentProps>((props
   }, [clearComponentConfig, configuringNodeId, setNodes])
 
   const handleConfirmLambdaConfig = useCallback((config: LambdaFunctionConfig) => {
-    updateConfiguringNodeData({ functionName: config.functionName })
+    updateConfiguringNodeData({
+      functionName: config.functionName,
+      runtime: config.runtime,
+      architecture: config.architecture,
+      language: config.language,
+      memoryMb: config.memoryMb,
+      ephemeralStorageMb: config.ephemeralStorageMb,
+      timeoutValue: config.timeoutValue,
+      timeoutUnit: config.timeoutUnit,
+      environmentVariables: config.environmentVariables,
+    })
   }, [updateConfiguringNodeData])
 
   const handleConfirmSnsConfig = useCallback((config: SnsTopicConfig) => {
